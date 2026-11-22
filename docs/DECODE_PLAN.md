@@ -140,6 +140,28 @@ Jim's first gate: **feed the sound card something a decoder says "yep, that's re
 
 **So the first rung, concretely:** run a known-good recording (Tait NMEA WAV ideal; SIGID data mp3 as a warm-up) through a discriminator-audio-capable decoder (DSD-FME, or OP25's UDP/audio input) and watch it **lock sync and emit frames / a hexdump** — that readout *is* "yep, that's real data." Then swap in our own DISC AUD and diff against the RNDIS NMEA. The fork's hexdump + SAP ledger is the exact instrument for both.
 
+---
+
+## First-capture & bring-up method (planned 2026-11-22; Jim leads the bench, Claude leads the decode)
+
+**Roles (Jim, 2026-11-22):** Claude is lead on all DSP/decode (slicer, sync, de-trellis, deinterleave, FEC, parsing — writes every line). Jim provides clean signal + is the hands on the bench + holds the ground truth. Both halves load-bearing; Claude has no radio/bench and can't fake the RF side. Claude reports honestly per stage ("worked / didn't / stuck here") and spells out every hands-on step one at a time (Jim doesn't keep commands in memory; ask for a screenshot, don't ask him to transcribe).
+
+**The capture (Jim's hands):** a *straight discriminator* recording in Audacity — **mono, 96 kHz, 16-bit**, a few **clean GPS keyups with silence between**, DISC AUD (DPH-CMD J2 CZ8) → sound-card line-in. For each keyup, note the NMEA the tracker showed = the answer key. Packets carry **no voice**, so a burst reads as: full-scale **noise → structured "head"** (frame sync/preamble, where deviation snaps to 4 bounded levels) → **data**.
+- *AC-coupling caveat (Claude handles in software):* most line-ins high-pass, so a long run of one symbol droops (baseline wander) and can smear the 4 levels; short bursts limit it + DC-restoration fixes it. Flagged so a droopy capture doesn't fool us.
+
+**Structure discovery before bit-decode ("packet place awareness" — Jim's framing):**
+1. **Auto-segment** bursts (noise→4-level structure via sample variance / 4800 Hz symbol energy) — no hand-trimming.
+2. **Diff multiple packets** → zone map: **rock-constant** (frame sync + NID, identical every frame) / **ticking** (PDU header seq/fragment counters) / **fully-varying** (payload + CRC = the GPS). Even a stationary unit varies the data zone because the **UTC time ticks every fix**.
+3. **Correlate the fixed 24-dibit P25 frame sync** to anchor exact frame start = the precise ruler for every later stage.
+4. *Caveat:* interleaving + FEC **spread** the varying bits across the data block, so the raw-symbol diff localizes the **data region & its length**, NOT lat-vs-lon; byte-level localization appears after de-interleave.
+
+**Dual known-plaintext harness (we have BOTH ends):**
+- **RNDIS byte-exact NMEA = the debugger** during bring-up — tells *which byte* broke when a sentence comes out 90% right (the map can't).
+- **The existing P25 GPS Tracker / The Lookout live-map plot = the acceptance test** — a decoded fix lands on the real truck (Jim's point: visual confirmation, no string diff needed).
+- **SUCCESS CRITERION = THE MISSION:** a fix decoded from **discriminator audio alone, RNDIS unplugged**, that still plots correctly on the map. That's "broke free of BK," on screen.
+
+**Decode order once a good WAV is in hand:** segment bursts → diff to map overhead-vs-data → correlate sync to anchor frame start → slice 4-level symbols → NID/DUID → de-trellis → deinterleave → Golay/Hamming/RS + CRC → payload bytes → NMEA → (confirm against RNDIS byte feed, then against the map).
+
 ## Sources
 - russinnes/P25-sndcp-packet-decoder (GitHub) — SNDCP→IPv4/UDP decode fork of OP25 (read its `lib/p25p1_fdma.cc`)
 - boatbod/op25 (GitHub) — maintained OP25 fork (no legacy Wireshark plugin)
