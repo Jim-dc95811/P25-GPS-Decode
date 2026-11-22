@@ -68,5 +68,7 @@ Cross-family context (for continuity, not for linking publicly): the BK-RNDIS tr
 - Files for him go **straight to his Downloads via the bridge** when the session is linked; tell him after. Commit each change from a **fresh** output path (the bridge re-sends the first snapshot on a repeated path).
 - **Bump the version on every change** — the running version is his tell for what's live.
 - 37 years of electronics / radio expert, not a coder — name things plainly; he reasons in vision/gist, works out the format/mechanism yourself.
+- **Enthusiastic, hands-on partner — "project success, not comfort" (his words, 2026-11-22).** Jim *wants* to be Claude's hands: he'll record the discriminator, run the rig, and save a bot-walled page to a file so Claude can read it. Hand him the physical step plainly; he does it gladly. Don't spare him work to be polite — he'd rather the work get done.
+- **Bot-walled pages → ask Jim to save & send (PROVEN 2026-11-22).** Key P25 sources refuse WebFetch with an anti-bot block (Anubis "Access Denied" — notably `osmocom.org`, the OP25 wiki). Workaround: Jim saves the page in his browser (**Ctrl+P → "Save as PDF"** is best — whole page + diagrams + real text; or Ctrl+S → MHTML/HTML, or select-all → `.txt`) and attaches it; Claude reads it fully. This unblocked the OP25 DecoderPage and handed us the slicer LUT + the `0x5575F5FF77FF` frame sync. Standard move for anything walled.
 
 *Keep this file current and lean. Depth belongs in `docs/DECODE_PLAN.md`; this is the map to it and the list of holes not to fall in twice.*
