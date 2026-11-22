@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GPS Tier 1 P25 Operation</title>
+<style>
+  :root{
+    --ink:#14212b; --body:#1d2a33; --muted:#5a6a74;
+    --accent:#0b6e99; --accent2:#0e7c86; --amber:#b5661a;
+    --rule:#c7d2d8; --soft:#eef3f5; --softer:#f6f9fa;
+    --code:#0f3a4d;
+  }
+  @page{ size: Letter; margin: 20mm 17mm 18mm 17mm; }
+  *{ box-sizing:border-box; }
+  html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body{
+    margin:0; color:var(--body);
+    font-family:"Charter","Georgia","Times New Roman",serif;
+    font-size:10.6pt; line-height:1.5;
+    counter-reset:sec fig tbl;
+  }
+  h1,h2,h3,h4,.sans,.fig-cap,.tbl-cap,th,.tag,.cover-sub,.cover-meta,.toc,.callout-h{
+    font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif;
+  }
+  h2{ color:var(--ink); font-size:15.5pt; margin:22pt 0 6pt; padding-bottom:3pt;
+     border-bottom:2px solid var(--accent); break-after:avoid; }
+  h2::before{ counter-increment:sec; content:counter(sec) ".\00a0\00a0"; color:var(--accent); }
+  h3{ color:var(--accent); font-size:12pt; margin:14pt 0 3pt; break-after:avoid; }
+  h4{ color:var(--ink); font-size:10.6pt; margin:10pt 0 2pt; letter-spacing:.02em; break-after:avoid; }
+  p{ margin:0 0 7pt; }
+  strong{ color:var(--ink); }
+  em{ color:var(--accent2); font-style:italic; }
+  code,.mono{ font-family:"Consolas","SFMono-Regular",Menlo,monospace; font-size:9.2pt; color:var(--code); }
+  a{ color:var(--accent); text-decoration:none; }
+  ul,ol{ margin:0 0 8pt 0; padding-left:18pt; }
+  li{ margin:0 0 3pt; }
+
+  /* cover */
+  .cover{ height:calc(100vh - 40mm); display:flex; flex-direction:column; break-after:page; }
+  .cover-top{ border-top:4px solid var(--accent); padding-top:10pt; color:var(--muted);
+    font-family:"Segoe UI",Arial,sans-serif; font-size:8.5pt; letter-spacing:.14em; text-transform:uppercase;
+    display:flex; justify-content:space-between; }
+  .cover-mid{ margin-top:34%; }
+  .cover h1{ font-family:"Segoe UI",Arial,sans-serif; color:var(--ink); font-size:33pt; line-height:1.05;
+    margin:0 0 6pt; letter-spacing:-.01em; }
+  .cover-sub{ font-size:13pt; color:var(--accent); font-weight:600; margin-bottom:3pt; }
+  .cover-sub2{ font-size:11pt; color:var(--muted); font-family:"Segoe UI",Arial,sans-serif; }
+  .cover-meta{ margin-top:auto; font-size:9pt; color:var(--muted); display:flex; justify-content:space-between;
+    border-top:1px solid var(--rule); padding-top:8pt; }
+  .abstract{ margin-top:16pt; background:var(--softer); border-left:3px solid var(--accent2);
+    padding:11pt 13pt; font-size:9.6pt; }
+  .abstract b{ font-family:"Segoe UI",Arial,sans-serif; letter-spacing:.03em; text-transform:uppercase; font-size:8pt; color:var(--accent2); display:block; margin-bottom:3pt; }
+
+  /* callouts */
+  .callout{ background:var(--softer); border:1px solid var(--rule); border-left:3px solid var(--amber);
+    padding:9pt 12pt; margin:9pt 0; font-size:9.8pt; break-inside:avoid; }
+  .callout.key{ border-left-color:var(--accent); background:#eef6fa; }
+  .callout-h{ font-size:8.3pt; letter-spacing:.08em; text-transform:uppercase; color:var(--amber); margin-bottom:3pt; }
+  .callout.key .callout-h{ color:var(--accent); }
+
+  /* figures */
+  figure{ margin:12pt 0; break-inside:avoid; }
+  figure svg{ width:100%; height:auto; display:block; border:1px solid var(--rule); background:#fff; border-radius:3px; }
+  .fig-cap{ counter-increment:fig; font-size:8.6pt; color:var(--muted); margin-top:4pt; }
+  .fig-cap::before{ content:"Figure " counter(fig) " — "; color:var(--accent); font-weight:600; }
+
+  /* tables */
+  table{ width:100%; border-collapse:collapse; margin:7pt 0 3pt; font-size:9.2pt; break-inside:avoid; }
+  caption{ caption-side:top; text-align:left; counter-increment:tbl; font-size:8.6pt; color:var(--muted); margin-bottom:3pt; }
+  caption::before{ content:"Table " counter(tbl) " — "; color:var(--accent); font-weight:600; font-family:"Segoe UI",Arial,sans-serif; }
+  th{ background:var(--ink); color:#fff; text-align:left; padding:4pt 7pt; font-size:8.6pt; font-weight:600; }
+  td{ padding:4pt 7pt; border-bottom:1px solid var(--rule); vertical-align:top; }
+  tr:nth-child(even) td{ background:var(--softer); }
+  td.mono{ white-space:nowrap; }
+
+  .lede{ font-size:11.4pt; color:var(--ink); line-height:1.45; }
+  hr.soft{ border:0; border-top:1px solid var(--rule); margin:14pt 0; }
+  .kbd{ font-family:"Consolas",monospace; background:var(--soft); border:1px solid var(--rule); border-radius:3px; padding:0 3pt; font-size:8.8pt; color:var(--code); }
+  .sc{ font-variant:small-caps; letter-spacing:.03em; color:var(--muted); }
+  svg text{ font-family:"Segoe UI",Arial,sans-serif; }
+  .toc a{ color:var(--body); } .toc{ font-size:10pt; }
+  .toc li{ margin:2pt 0; }
+  .num{ color:var(--accent); font-family:"Segoe UI",Arial,sans-serif; }
+  .foot{ color:var(--muted); font-size:8.4pt; }
+</style>
+</head>
+<body>
+
+<!-- ================= COVER ================= -->
+<section class="cover">
+  <div class="cover-top">
+    <span>Engineering Reference</span>
+    <span>P25 · Tier 1 Location · Over-the-Air GPS Decode</span>
+  </div>
+  <div class="cover-mid">
+    <div class="cover-sub2">A PROJECT 25 ENGINEERING BREAKDOWN</div>
+    <h1>GPS Tier&nbsp;1<br>P25 Operation</h1>
+    <div class="cover-sub">From discriminator audio to a plotted position — the complete signal chain, explained.</div>
+    <div class="abstract">
+      <b>What this is</b>
+      Project 25 Tier&nbsp;1 Location Service moves a unit's GPS fix over the air as ordinary NMEA text wrapped
+      inside a P25 data packet — no dispatch infrastructure, no internet, no cooperation from the base station
+      required to read it. This document reconstructs the <em>entire</em> operation end to end: how the fix is
+      formatted, how it is error-protected and modulated, where it can be tapped out of a receiver, and exactly
+      how to turn that recovered baseband back into latitude and longitude. It is written to stand on its own —
+      you should be able to hand it to an engineer and have them build the decoder from it.
+    </div>
+  </div>
+  <div class="cover-meta">
+    <span>Jim Gaddy &nbsp;·&nbsp; with Claude (Anthropic)</span>
+    <span>November 2026 &nbsp;·&nbsp; Rev. 1</span>
+  </div>
+</section>
+
+<!-- ================= FRONT NOTE + TOC ================= -->
+<p class="sc">Provenance &amp; scope</p>
+<p>No single published document describes this operation whole. The physical layer lives in the P25 Common
+Air Interface specifications; the data-packet machinery lives in the P25 Data standards; the location payload
+lives in the Tier&nbsp;1 Location Services specification; the receiver's tap point lives in a radio's service
+manual; and the only working reference code lives inside open-source decoders written for an entirely
+different purpose (voice and text, over software-defined radio). This document assembles those pieces into one
+coherent engineering narrative and <strong>expands on each</strong> — the standards tell you <em>what</em>;
+this tells you <em>how</em>, and <em>why</em>. It is an independent educational synthesis in our own words and
+original figures; it does not reproduce any copyrighted standard, and the numeric values it cites are the
+functional facts an implementer needs, not transcriptions.</p>
+
+<div class="callout key">
+  <div class="callout-h">The one idea to carry through the whole document</div>
+  A Tier&nbsp;1 location report is <strong>NMEA you already know, hidden under error-correction and
+  modulation you can undo.</strong> There is no encryption on the data, no proprietary compression, and no
+  secret format. Every layer between the GPS sentence and the RF is a <em>public, deterministic transform</em>.
+  Strip the transforms in the right order and the latitude and longitude fall out as plain ASCII text.
+</div>
+
+<p class="sc" style="margin-top:12pt">Contents</p>
+<ol class="toc">
+  <li>The problem, and the shape of the answer</li>
+  <li>System architecture — who talks to whom</li>
+  <li>The physical layer — C4FM and the four levels</li>
+  <li>The tap — getting baseband out of a receiver</li>
+  <li>Finding the packet in the noise — sync and framing</li>
+  <li>The data packet — headers, blocks, and the FEC stack</li>
+  <li>The Tier 1 payload — GGA and the <span class="mono">$PP25</span> sentence</li>
+  <li>The complete decode pipeline</li>
+  <li>Validation — the known-answer method</li>
+  <li>Timing, capacity, and operational behavior</li>
+  <li>Reference tables &amp; glossary</li>
+</ol>
+
+<!-- ================= 1. PROBLEM ================= -->
+<h2>The problem, and the shape of the answer</h2>
+<p class="lede">A firefighter keys up a portable radio. Two hundred milliseconds of digital chatter rides out
+on the channel alongside the voice traffic. Inside those milliseconds is the radio's own GPS fix. The question
+this document answers is: <strong>how do you get that fix onto a map without asking anyone's permission?</strong></p>
+
+<p>Public-safety radio location has historically been a walled garden. The position data exists — modern P25
+portables know where they are — but reading it usually means buying into a vendor's dispatch system, a server,
+a subscription, and a chain of cooperation that a small or underfunded agency may never get. The irony is that
+the data itself is <strong>standardized and open on the air</strong>, precisely so that radios from different
+manufacturers can interoperate. The lock is on the <em>infrastructure</em>, not the <em>signal</em>.</p>
+
+<p>Project 25 defines location services in two tiers. Understanding the split is the first move, because it
+tells you which problem you are solving:</p>
+
+<ul>
+  <li><strong>Tier 2</strong> is the infrastructure tier. Position is carried as IP datagrams through the fixed
+  network, with request/response protocols, triggered reporting, and server-side hosts. In the field this is
+  the realm of vendor protocols such as Motorola's LRRP. It is powerful, heavy, and <em>not what we want</em>.</li>
+  <li><strong>Tier 1</strong> is the field tier. It is deliberately the <em>simple</em> case: one radio sends
+  its NMEA fix directly to another radio (or through a repeater) over the Common Air Interface, with no IP
+  addressing, no fixed-network routing, and no advanced triggering. It exists for exactly the scenario we care
+  about — a portable talking to a portable (or to a laptop acting as a display) at an incident.</li>
+</ul>
+
+<p>Tier 1 is the door that was left unlocked. Its payload is <strong>NMEA 0183</strong> — the same GPS sentence
+format that pours out of every marine plotter and USB puck on earth — carried inside a plain, unconfirmed P25
+data packet. Nothing in that chain is secret. The rest of this document is the anatomy of that chain and the
+recipe for walking back up it.</p>
+
+<figure>
+<svg viewBox="0 0 760 232" role="img" aria-label="Tier 1 versus Tier 2 location services">
+  <rect x="0" y="0" width="760" height="232" fill="#fff"/>
+  <!-- divider -->
+  <line x1="380" y1="20" x2="380" y2="212" stroke="#c7d2d8" stroke-width="1" stroke-dasharray="4 4"/>
+  <!-- Tier 1 -->
+  <text x="26" y="34" font-size="13" font-weight="700" fill="#0b6e99">TIER 1 — field (our target)</text>
+  <rect x="26" y="52" width="92" height="40" rx="5" fill="#eef6fa" stroke="#0b6e99"/>
+  <text x="72" y="70" font-size="10" text-anchor="middle" fill="#14212b">Portable</text>
+  <text x="72" y="83" font-size="8" text-anchor="middle" fill="#5a6a74">(has GPS)</text>
+  <rect x="246" y="52" width="100" height="40" rx="5" fill="#eef6fa" stroke="#0b6e99"/>
+  <text x="296" y="70" font-size="10" text-anchor="middle" fill="#14212b">Portable / laptop</text>
+  <text x="296" y="83" font-size="8" text-anchor="middle" fill="#5a6a74">(the display)</text>
+  <line x1="118" y1="72" x2="246" y2="72" stroke="#0b6e99" stroke-width="2" marker-end="url(#a1)"/>
+  <text x="182" y="66" font-size="8.5" text-anchor="middle" fill="#0e7c86">NMEA over CAI</text>
+  <text x="182" y="107" font-size="8.5" text-anchor="middle" fill="#5a6a74">direct, unconfirmed, no IP</text>
+  <rect x="26" y="150" width="320" height="48" rx="4" fill="#f6f9fa" stroke="#c7d2d8"/>
+  <text x="38" y="168" font-size="9" fill="#14212b" font-weight="700">What it is:</text>
+  <text x="38" y="182" font-size="8.6" fill="#1d2a33">ASCII NMEA ($GPGGA + $PP25) inside a plain</text>
+  <text x="38" y="193" font-size="8.6" fill="#1d2a33">P25 data packet. Readable with a receiver + sound card.</text>
+  <!-- Tier 2 -->
+  <text x="404" y="34" font-size="13" font-weight="700" fill="#8a97a0">TIER 2 — infrastructure</text>
+  <rect x="404" y="52" width="80" height="40" rx="5" fill="#f2f4f5" stroke="#9aa6ad"/>
+  <text x="444" y="75" font-size="10" text-anchor="middle" fill="#5a6a74">Subscriber</text>
+  <rect x="528" y="52" width="70" height="40" rx="5" fill="#f2f4f5" stroke="#9aa6ad"/>
+  <text x="563" y="75" font-size="10" text-anchor="middle" fill="#5a6a74">Network</text>
+  <rect x="640" y="52" width="88" height="40" rx="5" fill="#f2f4f5" stroke="#9aa6ad"/>
+  <text x="684" y="70" font-size="10" text-anchor="middle" fill="#5a6a74">Host /</text>
+  <text x="684" y="83" font-size="10" text-anchor="middle" fill="#5a6a74">server</text>
+  <line x1="484" y1="72" x2="528" y2="72" stroke="#9aa6ad" stroke-width="2" marker-end="url(#a2)"/>
+  <line x1="598" y1="72" x2="640" y2="72" stroke="#9aa6ad" stroke-width="2" marker-end="url(#a2)"/>
+  <text x="566" y="107" font-size="8.5" text-anchor="middle" fill="#8a97a0">IP datagrams · LRRP · triggered</text>
+  <rect x="404" y="150" width="324" height="48" rx="4" fill="#f6f9fa" stroke="#c7d2d8"/>
+  <text x="416" y="168" font-size="9" fill="#5a6a74" font-weight="700">What it is:</text>
+  <text x="416" y="182" font-size="8.6" fill="#5a6a74">Proprietary/IP location through fixed infrastructure.</text>
+  <text x="416" y="193" font-size="8.6" fill="#5a6a74">Heavier, vendor-bound — a different problem entirely.</text>
+  <defs>
+    <marker id="a1" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0b6e99"/></marker>
+    <marker id="a2" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#9aa6ad"/></marker>
+  </defs>
+</svg>
+<figcaption class="fig-cap">The two location tiers. Tier 1 is a direct subscriber-to-subscriber NMEA transfer over
+the air; Tier 2 is infrastructure-borne IP location. This document is entirely about Tier 1.</figcaption>
+</figure>
+
+<!-- ================= 2. ARCHITECTURE ================= -->
+<h2>System architecture — who talks to whom</h2>
+<p>Before touching bits, fix the players in your head. Tier 1 names four roles. Three of them matter to us, and
+two of them are things you already own.</p>
+
+<ul>
+  <li><strong>LIS — Location Information System.</strong> Whatever tells the radio where it is: the GPS
+  receiver chip. Usually internal to the portable. Not our concern except that it is the origin of the fix.</li>
+  <li><strong>SU — Subscriber Unit.</strong> The radio. The <em>sending</em> SU takes the fix from its GPS and
+  transmits it; the <em>receiving</em> SU pulls it off the air and hands it to a display. In our world the
+  sending SU is a field portable; the receiving SU is the base radio on the bench.</li>
+  <li><strong>FS<sub>R</sub> — Fixed Station Repeater.</strong> Optional. If the two radios cannot hear each
+  other directly, a repeater relays the packet. To the data, a repeater is transparent — same bytes in, same
+  bytes out — so it changes nothing about decoding.</li>
+  <li><strong>LSHS — Location Service Host System.</strong> The thing that displays the fix on a map. The
+  standard explicitly notes this is typically a commercial off-the-shelf product — a laptop running mapping
+  software. <strong>This is the role our decoder plays.</strong> We are a legitimate, standards-anticipated
+  LSHS; we simply source the fix from the air rather than from a vendor's cable.</li>
+</ul>
+
+<p>Two physical configurations are defined, and both are in scope:</p>
+<ul>
+  <li><strong>Direct Data:</strong> SU → SU. The sending radio transmits; the receiving radio hears it directly.</li>
+  <li><strong>Repeated Data:</strong> SU → FS<sub>R</sub> → SU. Same thing through a repeater.</li>
+</ul>
+
+<figure>
+<svg viewBox="0 0 760 196" role="img" aria-label="Subscriber to subscriber architecture mapped to our equipment">
+  <rect width="760" height="196" fill="#fff"/>
+  <!-- LIS -->
+  <ellipse cx="70" cy="70" rx="48" ry="30" fill="#f6f9fa" stroke="#c7d2d8"/>
+  <text x="70" y="66" font-size="11" text-anchor="middle" fill="#14212b" font-weight="700">LIS</text>
+  <text x="70" y="79" font-size="8" text-anchor="middle" fill="#5a6a74">GPS chip</text>
+  <!-- SU1 -->
+  <rect x="168" y="46" width="92" height="48" rx="5" fill="#eef6fa" stroke="#0b6e99"/>
+  <text x="214" y="66" font-size="11" text-anchor="middle" fill="#14212b" font-weight="700">SU (TX)</text>
+  <text x="214" y="80" font-size="8" text-anchor="middle" fill="#5a6a74">field portable</text>
+  <!-- air -->
+  <line x1="118" y1="70" x2="168" y2="70" stroke="#5a6a74" stroke-width="1.5" marker-end="url(#b2)"/>
+  <!-- SU2 -->
+  <rect x="372" y="46" width="104" height="48" rx="5" fill="#eef6fa" stroke="#0b6e99"/>
+  <text x="424" y="66" font-size="11" text-anchor="middle" fill="#14212b" font-weight="700">SU (RX)</text>
+  <text x="424" y="80" font-size="8" text-anchor="middle" fill="#5a6a74">base radio (bench)</text>
+  <path d="M260,70 L372,70" stroke="#0b6e99" stroke-width="2.5" marker-end="url(#b1)"/>
+  <text x="316" y="60" font-size="9" text-anchor="middle" fill="#0e7c86">over the air</text>
+  <text x="316" y="100" font-size="8" text-anchor="middle" fill="#5a6a74">(or via FS&#8341; repeater)</text>
+  <!-- repeater -->
+  <rect x="300" y="128" width="32" height="30" rx="3" fill="#f6f9fa" stroke="#c7d2d8"/>
+  <text x="316" y="147" font-size="8" text-anchor="middle" fill="#5a6a74">FS&#8341;</text>
+  <path d="M300,143 C250,150 250,96 300,80" fill="none" stroke="#c7d2d8" stroke-width="1" stroke-dasharray="3 3"/>
+  <path d="M332,143 C382,150 382,96 360,82" fill="none" stroke="#c7d2d8" stroke-width="1" stroke-dasharray="3 3"/>
+  <!-- LSHS -->
+  <ellipse cx="632" cy="70" rx="72" ry="34" fill="#fff6ec" stroke="#b5661a" stroke-width="1.6"/>
+  <text x="632" y="60" font-size="11" text-anchor="middle" fill="#14212b" font-weight="700">LSHS</text>
+  <text x="632" y="74" font-size="8.4" text-anchor="middle" fill="#8a5316">our decoder + map</text>
+  <text x="632" y="86" font-size="8.4" text-anchor="middle" fill="#8a5316">(off-the-shelf role)</text>
+  <line x1="476" y1="70" x2="560" y2="70" stroke="#5a6a74" stroke-width="1.5" marker-end="url(#b2)"/>
+  <text x="518" y="62" font-size="8" text-anchor="middle" fill="#5a6a74">display feed</text>
+  <text x="380" y="182" font-size="8.4" text-anchor="middle" fill="#5a6a74">We occupy the receiving SU's output and the LSHS display — exactly the roles the standard leaves open and unspecified.</text>
+  <defs>
+    <marker id="b1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#0b6e99"/></marker>
+    <marker id="b2" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#5a6a74"/></marker>
+  </defs>
+</svg>
+<figcaption class="fig-cap">The Tier 1 chain mapped to real hardware. The interfaces into the GPS (LIS→SU) and
+out to the display (SU→LSHS) are deliberately <em>not</em> standardized — manufacturers fill them however they
+like — which is precisely the gap a custom decoder is entitled to occupy.</figcaption>
+</figure>
+
+<div class="callout">
+  <div class="callout-h">Why the open interfaces matter</div>
+  The standard refuses to specify the LIS→SU and SU→LSHS interfaces, reasoning that a GPS chip or a map
+  application may be built right into the radio, and that the location industry evolves faster than a frozen
+  interface would allow. That refusal is a gift: it means reading the fix at the receiving SU's output and
+  plotting it yourself is not a workaround — it is the LSHS role operating exactly as intended.
+</div>
+
+<!-- ================= 3. PHYSICAL LAYER ================= -->
+<h2>The physical layer — C4FM and the four levels</h2>
+<p>Everything on a P25 Phase 1 channel is carried by <strong>C4FM</strong>: continuous-phase four-level
+frequency modulation. Strip away the acronym and it is simple — the transmitter shifts its frequency to one of
+four values, 4800 times a second, and each of those four values stands for two bits.</p>
+
+<table>
+  <caption>The C4FM symbol alphabet. Four frequency deviations, each carrying one dibit (two bits).</caption>
+  <thead><tr><th>Dibit</th><th>Symbol</th><th>Frequency deviation</th><th>Discriminator level</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">01</td><td>+3</td><td class="mono">+1800 Hz</td><td>outer high</td></tr>
+    <tr><td class="mono">00</td><td>+1</td><td class="mono">+600 Hz</td><td>inner high</td></tr>
+    <tr><td class="mono">10</td><td>&minus;1</td><td class="mono">&minus;600 Hz</td><td>inner low</td></tr>
+    <tr><td class="mono">11</td><td>&minus;3</td><td class="mono">&minus;1800 Hz</td><td>outer low</td></tr>
+  </tbody>
+</table>
+
+<p>The numbers drive the whole front end, so internalize them:</p>
+<ul>
+  <li><strong>4800 symbols per second.</strong> Each symbol is two bits, so the gross bit rate is
+  <strong>9600 bps</strong>. One symbol lasts 208.3 µs.</li>
+  <li><strong>Four levels, symmetric about zero.</strong> The deviations are ±1800 Hz and ±600 Hz — an outer
+  pair and an inner pair, mirror-imaged around the carrier. A frequency discriminator turns frequency deviation
+  into voltage, so on its output those four frequencies become four voltage levels, symmetric about zero.</li>
+  <li><strong>A 3:1 ratio.</strong> The outer level is three times the inner level. That fixed geometry is how
+  a slicer sets its thresholds without knowing the absolute gain of the radio: find the extremes, and the inner
+  levels sit at ±⅓ of the way out.</li>
+</ul>
+
+<p>Why four-level FM rather than a phase-shift scheme? Two reasons the P25 designers cared about. First, a
+constant-envelope FM signal lets a transmitter run its power amplifier hard and cheap without spectral
+regrowth. Second — and this is the part that helps us — the receiver that demodulates C4FM is an ordinary FM
+discriminator, the same block that has lived in two-way radios for decades. P25 Phase 1 was deliberately
+designed so that a single C4FM/π4-DQPSK receiver can demodulate it. The consequence for a decoder builder is
+enormous: <strong>by the time the signal reaches the discriminator output, it is already demodulated.</strong>
+We never touch RF.</p>
+
+<figure>
+<svg viewBox="0 0 760 210" role="img" aria-label="C4FM four-level waveform on the discriminator">
+  <rect width="760" height="210" fill="#fff"/>
+  <!-- axes -->
+  <line x1="56" y1="20" x2="56" y2="176" stroke="#9aa6ad"/>
+  <line x1="56" y1="98" x2="724" y2="98" stroke="#c7d2d8" stroke-dasharray="3 3"/>
+  <!-- level guides -->
+  <g font-size="8" fill="#5a6a74" font-family="Consolas,monospace">
+    <line x1="56" y1="38" x2="724" y2="38" stroke="#eef3f5"/><text x="20" y="41">+1800</text>
+    <line x1="56" y1="78" x2="724" y2="78" stroke="#eef3f5"/><text x="26" y="81">+600</text>
+    <line x1="56" y1="118" x2="724" y2="118" stroke="#eef3f5"/><text x="26" y="121">&minus;600</text>
+    <line x1="56" y1="158" x2="724" y2="158" stroke="#eef3f5"/><text x="20" y="161">&minus;1800</text>
+  </g>
+  <!-- rounded stepped waveform through sample points at levels 38,78,118,158 -->
+  <path d="M56,98 C70,98 70,38 90,38 C110,38 110,118 130,118 C150,118 150,78 170,78
+           C190,78 190,158 210,158 C230,158 230,38 250,38 C270,38 270,38 290,38
+           C310,38 310,158 330,158 C350,158 350,118 370,118 C390,118 390,78 410,78
+           C430,78 430,158 450,158 C470,158 470,38 490,38 C510,38 510,118 530,118
+           C550,118 550,158 570,158 C590,158 590,78 610,78 C630,78 630,38 650,38
+           C670,38 670,118 690,118 C705,118 705,98 718,98"
+        fill="none" stroke="#0b6e99" stroke-width="2"/>
+  <!-- symbol ticks -->
+  <g stroke="#c7d2d8">
+    <line x1="90" y1="176" x2="90" y2="180"/><line x1="130" y1="176" x2="130" y2="180"/>
+    <line x1="170" y1="176" x2="170" y2="180"/><line x1="210" y1="176" x2="210" y2="180"/>
+  </g>
+  <text x="150" y="196" font-size="8" fill="#5a6a74">◄ one symbol = 208 µs (4800/s) ►</text>
+  <text x="60" y="16" font-size="8.5" fill="#5a6a74">discriminator output (Hz dev.)</text>
+  <text x="640" y="16" font-size="8.5" fill="#0b6e99" font-weight="700">01 / 00 / 10 / 11</text>
+</svg>
+<figcaption class="fig-cap">C4FM as it appears on the discriminator: a rounded, four-level staircase at 4800
+symbols per second. The rounding is pulse shaping plus audio bandwidth; the information lives at each symbol's
+<em>center</em>, where the level has settled.</figcaption>
+</figure>
+
+<p>The waveform does not look like clean steps because the signal is deliberately band-limited (a shaping
+filter keeps it inside the 12.5 kHz channel) and because the receiver's audio path rounds the edges further.
+This is fine. A slicer does not read the slopes; it reads the <em>centers</em>. If you fold many symbols on top
+of one another at the symbol rate, the centers stack into four tight horizontal bands separated by open gaps —
+the classic <strong>eye diagram</strong>. A clean eye with four open bands is the single best proof that a
+capture is good before you decode a single bit.</p>
+
+<figure>
+<svg viewBox="0 0 760 170" role="img" aria-label="Four-level eye diagram">
+  <rect width="760" height="170" fill="#fff"/>
+  <text x="20" y="18" font-size="9" fill="#5a6a74">Eye diagram — symbols folded at the symbol rate</text>
+  <g fill="none" stroke="#0b6e99" stroke-width="1" opacity="0.5">
+    <!-- traces fanning between 4 levels -->
+    <path d="M60,30 C180,30 180,30 300,30"/><path d="M60,30 C180,30 180,70 300,70"/>
+    <path d="M60,30 C180,30 180,110 300,110"/><path d="M60,30 C180,30 180,150 300,150"/>
+    <path d="M60,70 C180,70 180,30 300,30"/><path d="M60,70 C180,70 180,110 300,110"/>
+    <path d="M60,110 C180,110 180,30 300,30"/><path d="M60,110 C180,110 180,150 300,150"/>
+    <path d="M60,150 C180,150 180,70 300,70"/><path d="M60,150 C180,150 180,110 300,110"/>
+    <path d="M300,30 C420,30 420,110 540,110"/><path d="M300,70 C420,70 420,150 540,150"/>
+    <path d="M300,110 C420,110 420,30 540,30"/><path d="M300,150 C420,150 420,70 540,70"/>
+    <path d="M300,30 C420,30 420,30 540,30"/><path d="M300,110 C420,110 420,110 540,110"/>
+    <path d="M540,30 C620,30 620,70 700,70"/><path d="M540,110 C620,110 620,150 700,150"/>
+    <path d="M540,70 C620,70 620,30 700,30"/><path d="M540,150 C620,150 620,110 700,110"/>
+  </g>
+  <!-- decision bands -->
+  <g font-family="Consolas,monospace" font-size="8" fill="#b5661a">
+    <line x1="400" y1="30" x2="470" y2="30" stroke="#b5661a" stroke-dasharray="2 2"/><text x="474" y="33">+3 (01)</text>
+    <line x1="400" y1="70" x2="470" y2="70" stroke="#b5661a" stroke-dasharray="2 2"/><text x="474" y="73">+1 (00)</text>
+    <line x1="400" y1="110" x2="470" y2="110" stroke="#b5661a" stroke-dasharray="2 2"/><text x="474" y="113">&minus;1 (10)</text>
+    <line x1="400" y1="150" x2="470" y2="150" stroke="#b5661a" stroke-dasharray="2 2"/><text x="474" y="153">&minus;3 (11)</text>
+  </g>
+  <line x1="400" y1="20" x2="400" y2="160" stroke="#14212b" stroke-width="0.8" stroke-dasharray="4 3"/>
+  <text x="340" y="166" font-size="7.5" fill="#14212b">sample instant (symbol center)</text>
+</svg>
+<figcaption class="fig-cap">The eye diagram is the health check. Four separated bands with open space between
+them means the symbols are cleanly recoverable; a collapsed or smeared eye means timing, level, or baseline
+problems to fix before decoding.</figcaption>
+</figure>
+
+<!-- ================= 4. THE TAP ================= -->
+<h2>The tap — getting baseband out of a receiver</h2>
+<p>There are two honest ways to obtain C4FM baseband: demodulate it yourself from RF with a software-defined
+radio, or take it from a receiver that has already demodulated it. The second is simpler, cheaper, and more
+robust for a fixed-channel job — and it is the path this document assumes.</p>
+
+<p>A conventional dual-conversion FM receiver takes the antenna signal down through two intermediate
+frequencies, limits it, and runs it into a frequency discriminator — the block that converts frequency
+deviation into an audio-band voltage. In a digital radio that recovered baseband (often labeled
+<span class="mono">DISC AUD</span> or "discriminator audio") normally flows onward to a codec and DSP. The tap
+is simply a connection to that recovered baseband <em>before</em> the radio's own DSP consumes it.</p>
+
+<figure>
+<svg viewBox="0 0 760 150" role="img" aria-label="Receiver chain to discriminator tap">
+  <rect width="760" height="150" fill="#fff"/>
+  <!-- antenna -->
+  <path d="M40,40 l0,30 M30,40 l10,-12 l10,12" fill="none" stroke="#14212b" stroke-width="1.5"/>
+  <line x1="40" y1="70" x2="40" y2="96" stroke="#14212b"/>
+  <line x1="40" y1="96" x2="78" y2="96" stroke="#14212b"/>
+  <g font-size="8.5" text-anchor="middle">
+    <rect x="78" y="80" width="78" height="32" rx="4" fill="#f6f9fa" stroke="#c7d2d8"/><text x="117" y="100" fill="#14212b">RF front end</text>
+    <rect x="176" y="80" width="86" height="32" rx="4" fill="#f6f9fa" stroke="#c7d2d8"/><text x="219" y="96" fill="#14212b">IF strip</text><text x="219" y="107" fill="#5a6a74" font-size="7">16.9M → 455k</text>
+    <rect x="282" y="80" width="78" height="32" rx="4" fill="#f6f9fa" stroke="#c7d2d8"/><text x="321" y="100" fill="#14212b">limiter</text>
+    <rect x="380" y="76" width="104" height="40" rx="4" fill="#eef6fa" stroke="#0b6e99"/><text x="432" y="92" fill="#14212b" font-weight="700">discriminator</text><text x="432" y="105" fill="#5a6a74" font-size="7">= FM demod</text>
+  </g>
+  <line x1="156" y1="96" x2="176" y2="96" stroke="#14212b" marker-end="url(#c1)"/>
+  <line x1="262" y1="96" x2="282" y2="96" stroke="#14212b" marker-end="url(#c1)"/>
+  <line x1="360" y1="96" x2="380" y2="96" stroke="#14212b" marker-end="url(#c1)"/>
+  <!-- tap -->
+  <line x1="484" y1="96" x2="560" y2="96" stroke="#0b6e99" stroke-width="2"/>
+  <circle cx="520" cy="96" r="4" fill="#b5661a"/>
+  <text x="520" y="80" font-size="8.5" text-anchor="middle" fill="#b5661a" font-weight="700">TAP: DISC AUD</text>
+  <line x1="520" y1="96" x2="520" y2="124" stroke="#b5661a" stroke-width="1.5"/>
+  <text x="520" y="138" font-size="8" text-anchor="middle" fill="#b5661a">→ to PC sound card</text>
+  <!-- radio's own path continues greyed -->
+  <g opacity="0.45">
+    <rect x="560" y="80" width="70" height="32" rx="4" fill="#f2f4f5" stroke="#9aa6ad"/><text x="595" y="100" font-size="8.5" text-anchor="middle" fill="#5a6a74">codec</text>
+    <rect x="648" y="80" width="70" height="32" rx="4" fill="#f2f4f5" stroke="#9aa6ad"/><text x="683" y="100" font-size="8.5" text-anchor="middle" fill="#5a6a74">radio DSP</text>
+    <line x1="560" y1="96" x2="560" y2="96" stroke="#9aa6ad"/>
+    <line x1="630" y1="96" x2="648" y2="96" stroke="#9aa6ad" marker-end="url(#c1)"/>
+  </g>
+  <text x="40" y="24" font-size="9" fill="#5a6a74">We enter the signal chain here — after demodulation, before the radio's DSP. No RF, no SDR.</text>
+  <defs><marker id="c1" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#14212b"/></marker></defs>
+</svg>
+<figcaption class="fig-cap">The receiver has already done the hard RF work. Tapping the discriminator output
+hands us demodulated C4FM baseband directly; the only front-end work left is sampling it and slicing symbols.</figcaption>
+</figure>
+
+<h3>Capturing it cleanly</h3>
+<p>The capture device is a PC sound card. Two practical points decide whether the capture is usable:</p>
+<ul>
+  <li><strong>Sample rate.</strong> At 96 kHz you get roughly twenty samples per symbol — more than enough to
+  reconstruct the waveform and find the symbol centers. 48 kHz (ten samples/symbol) also works. Record mono.</li>
+  <li><strong>Baseline wander — the one real trap.</strong> Most sound-card line inputs are AC-coupled: they
+  pass only changing signals and slowly drift a constant level back toward zero. But C4FM carries information in
+  <em>absolute</em> level, and a run of identical symbols is a constant level. Over a long run the coupling lets
+  that level sag, smearing the four bands. The fix is twofold: keep bursts short (a GPS packet is only a couple
+  hundred milliseconds, so wander is limited) and restore the baseline in software by continuously tracking the
+  signal's running center and re-referencing the slicer to it. A DC-coupled interface avoids the problem
+  entirely but is rarely necessary for short packets.</li>
+</ul>
+
+<!-- ================= 5. FRAMING ================= -->
+<h2>Finding the packet in the noise — sync and framing</h2>
+<p>A raw discriminator recording of an idle channel is full-scale hiss. When a transmission begins, that hiss
+collapses into the orderly four-level structure of C4FM. That transition — noise to structure — is itself a
+reliable trigger: a simple measure of signal variance, or energy at the 4800 Hz symbol rate, marks where each
+burst starts and ends. You can segment every packet out of a long recording automatically, with no hand-trimming.</p>
+
+<p>Segmenting the burst is not the same as knowing where the <em>frame</em> begins inside it. For that, P25
+puts a fixed marker at the head of every frame:</p>
+
+<ul>
+  <li><strong>Frame Synchronization (FS):</strong> a fixed 48-bit (24-dibit) pattern,
+  <span class="mono">0x5575F5FF77FF</span>, identical on every P25 Phase 1 frame. You locate it by
+  <em>correlation</em> — slide the known pattern across the recovered symbol stream and watch for the spike
+  where they line up. That spike is an exact, unambiguous ruler: everything after it is measured from a known
+  origin.</li>
+  <li><strong>Network Identifier (NID):</strong> the 64 bits immediately following sync. It carries the
+  Network Access Code (which network the traffic belongs to) and the Data Unit ID (DUID) — the frame's type.
+  The DUID is what tells you "this is a data unit, not a voice frame," so you keep it and discard the rest.</li>
+</ul>
+
+<div class="callout key">
+  <div class="callout-h">Reconnaissance before decoding — "packet place awareness"</div>
+  Because a location packet carries no voice, the only part that changes between two fixes is the GPS data
+  itself. Record several keyups and <strong>difference them</strong>: the frame sync and NID are rock-constant,
+  the header's sequence counters tick, and the data region varies. That difference map tells you where the
+  overhead ends and the payload begins — before you have decoded a single field. (One caveat: interleaving
+  spreads the varying bits across the data block, so the raw-symbol difference localizes the data
+  <em>region</em>, not individual latitude vs. longitude characters. Those separate out one stage later, after
+  de-interleaving.)
+</div>
+
+<figure>
+<svg viewBox="0 0 760 118" role="img" aria-label="Anatomy of a data burst">
+  <rect width="760" height="118" fill="#fff"/>
+  <text x="20" y="20" font-size="9" fill="#5a6a74">One data burst, left to right in time:</text>
+  <g font-size="8.5" text-anchor="middle">
+    <rect x="20" y="34" width="74" height="40" fill="#f2f4f5" stroke="#9aa6ad"/><text x="57" y="52" fill="#5a6a74">noise</text><text x="57" y="64" fill="#9aa6ad" font-size="7">(idle)</text>
+    <rect x="94" y="34" width="86" height="40" fill="#fff6ec" stroke="#b5661a"/><text x="137" y="52" fill="#14212b" font-weight="700">FS</text><text x="137" y="64" fill="#8a5316" font-size="7">48 bits · 0x5575F5FF77FF</text>
+    <rect x="180" y="34" width="70" height="40" fill="#eef6fa" stroke="#0b6e99"/><text x="215" y="52" fill="#14212b" font-weight="700">NID</text><text x="215" y="64" fill="#5a6a74" font-size="7">64b · NAC+DUID</text>
+    <rect x="250" y="34" width="96" height="40" fill="#eef6fa" stroke="#0b6e99"/><text x="298" y="52" fill="#14212b" font-weight="700">header block</text><text x="298" y="64" fill="#5a6a74" font-size="7">196 coded bits</text>
+    <rect x="346" y="34" width="86" height="40" fill="#e9f3ee" stroke="#0e7c86"/><text x="389" y="52" fill="#14212b" font-weight="700">data blk 1</text><text x="389" y="64" fill="#5a6a74" font-size="7">196 bits</text>
+    <rect x="432" y="34" width="86" height="40" fill="#e9f3ee" stroke="#0e7c86"/><text x="475" y="52" fill="#14212b" font-weight="700">data blk 2</text><text x="475" y="64" fill="#5a6a74" font-size="7">196 bits</text>
+    <rect x="518" y="34" width="70" height="40" fill="#e9f3ee" stroke="#0e7c86" stroke-dasharray="3 2"/><text x="553" y="55" fill="#5a6a74">· · ·</text>
+    <rect x="588" y="34" width="86" height="40" fill="#e9f3ee" stroke="#0e7c86"/><text x="631" y="52" fill="#14212b" font-weight="700">data blk N</text><text x="631" y="64" fill="#5a6a74" font-size="7">+ CRC-32</text>
+  </g>
+  <text x="389" y="92" font-size="8" text-anchor="middle" fill="#5a6a74">On air each block is 196 coded bits. Burst length = 48 + 64 + (1 + N) × 196 bits, at 9600 bps.</text>
+  <text x="389" y="106" font-size="8" text-anchor="middle" fill="#0b6e99">A GPS fix is a small N (≈ 2–10 blocks) → a ~0.2–0.4 second burst.</text>
+</svg>
+<figcaption class="fig-cap">Burst anatomy. The sync word and NID are the invariant head; the header and data
+blocks follow, each a fixed 196 coded bits on the air. Everything downstream is measured from the sync spike.</figcaption>
+</figure>
+
+<!-- ================= 6. DATA PACKET ================= -->
+<h2>The data packet — headers, blocks, and the FEC stack</h2>
+<p>Past the sync and NID, a P25 data unit is a <strong>Packet Data Unit (PDU)</strong>: one header block
+followed by some number of data blocks, all wrapped in layers of error-correction. The header describes the
+packet; the data blocks carry the payload; the FEC guarantees the payload survives a noisy channel intact —
+or is thrown away. There is no middle ground, and that is a feature (see the callout).</p>
+
+<h3>The header block</h3>
+<p>The header is a fixed 12-octet structure (before coding) that answers the receiver's questions about the
+packet. The fields that matter to a Tier 1 decoder are:</p>
+<table>
+  <caption>The PDU header fields a Tier 1 decoder reads.</caption>
+  <thead><tr><th>Field</th><th>What it tells you</th><th>Tier 1 value</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Format</strong></td><td>Packet type — confirmed vs. unconfirmed data, or a response/ack</td><td>unconfirmed data</td></tr>
+    <tr><td><strong>SAP</strong></td><td>Service Access Point — <em>which service</em> this packet belongs to. The single most important routing field.</td><td>the dedicated <strong>Location Service</strong> SAP</td></tr>
+    <tr><td><strong>Blocks&nbsp;to&nbsp;follow</strong></td><td>How many data blocks come after the header (a 7-bit field, so 1–127)</td><td>small (a GPS fix fits in a few)</td></tr>
+    <tr><td><strong>Pad octets</strong></td><td>How many filler bytes pad the final block</td><td>as needed</td></tr>
+    <tr><td><strong>Data Header Offset</strong></td><td>Where the real payload starts inside the data region</td><td><strong>0</strong></td></tr>
+  </tbody>
+</table>
+
+<div class="callout key">
+  <div class="callout-h">The SAP is the whole game</div>
+  Service Access Point is how P25 multiplexes many kinds of data onto one air interface. General packet data
+  that carries IP (the path that moves text messaging and vendor location) rides a different SAP — the one a
+  general decoder keys on to reassemble IP/UDP datagrams. <strong>Tier 1 location uses its own dedicated
+  Location Service SAP.</strong> That one field is both the thing that identifies our packets and the proof
+  that they are <em>not</em> on the IP path: with a dedicated SAP and a data-header-offset of zero, the payload
+  that follows the header is the NMEA itself — there is no IP header, no UDP header, nothing to unwrap. This is
+  what makes Tier 1 strictly simpler to decode than general P25 packet data.
+</div>
+
+<h3>Data blocks and delivery mode</h3>
+<p>Data blocks come in two flavors. <strong>Confirmed</strong> blocks carry a sequence number and block CRC so
+the receiver can acknowledge each one and request retries — robust, but it needs a two-way conversation.
+<strong>Unconfirmed</strong> blocks are pure payload: no per-block sequence, no acknowledgement, fire and
+forget. Tier 1 uses <strong>unconfirmed</strong> delivery, and the choice is deliberate and correct: a GPS fix
+is perishable. By the time a retransmission handshake completed, the position would be stale; better to send a
+fresh fix than to guarantee an old one. Unconfirmed delivery also matches the operational model perfectly —
+the fix rides when the operator keys up, exactly when their location is most worth knowing.</p>
+
+<h3>The FEC stack</h3>
+<p>Between the raw symbols and the clean payload bytes sits a stack of error-correcting codes. Each exists to
+let the packet survive a channel that flips bits, and each is a published, invertible transform:</p>
+<ul>
+  <li><strong>Trellis coding</strong> — a convolutional code (rate ½ for unconfirmed data) decoded with a
+  Viterbi-style search. This is the heaviest lifter and the reason a wrong implementation produces pure garbage
+  rather than "nearly right" output.</li>
+  <li><strong>Interleaving</strong> — the coded bits of a block are scattered in a fixed pattern so that a
+  burst of channel noise damages many independent code words a little, instead of one code word fatally. You
+  undo it by applying the inverse permutation.</li>
+  <li><strong>Golay, Hamming, and Reed–Solomon codes</strong> — block codes protecting specific fields (the
+  header especially) with the ability to correct a bounded number of errors outright.</li>
+  <li><strong>CRC</strong> — a final checksum over the assembled payload (a 32-bit packet CRC). It does not
+  correct; it <em>verdicts</em>. Either the reassembled bytes match the CRC exactly, or the packet is rejected.</li>
+</ul>
+
+<div class="callout">
+  <div class="callout-h">Why "nearly decoded" does not exist</div>
+  Error-correction plus a final CRC makes decoding binary. The FEC either corrects every channel error and the
+  CRC passes — in which case the payload is bit-perfect and the latitude is exactly right — or it fails and the
+  packet is discarded. There is no partially-correct fix. For a decoder builder this is a gift: the CRC is an
+  unforgeable pass/fail, so a correct decode proves itself and a wrong one cannot masquerade as success.
+</div>
+
+<!-- ================= 7. PAYLOAD ================= -->
+<h2>The Tier 1 payload — GGA and the <span class="mono">$PP25</span> sentence</h2>
+<p>Undo the FEC, strip the pad and CRC, and what remains — for a Tier 1 location packet — is plain ASCII text:
+one or more NMEA 0183 sentences. This is the moment the whole chain pays off. The exotic radio protocol
+terminates in the same humble GPS format a hobbyist reads off a USB puck.</p>
+
+<h3>NMEA in sixty seconds</h3>
+<p>An NMEA sentence is a single line of printable ASCII: a <span class="mono">$</span>, a two-letter talker ID,
+a three-letter sentence type, a series of comma-separated fields, then <span class="mono">*</span> and a
+two-hex-digit checksum, terminated by carriage-return/line-feed. The checksum is simply the XOR of every
+character between the <span class="mono">$</span> and the <span class="mono">*</span>. Fields may be left empty
+(two commas with nothing between) but the commas always hold their place, so you parse by counting commas, not
+columns. There is no handshake in NMEA itself — the receiver checks the checksum and silently ignores anything
+that fails, assuming a fresh line is coming.</p>
+
+<h3>What Tier 1 actually sends</h3>
+<p>The standard allows a family of NMEA sentences but makes exactly one <strong>mandatory</strong> on the
+transmitting side: <strong>GGA</strong> — "Global Positioning System Fix Data." That is the sentence that
+carries the essentials: time, latitude, longitude, fix quality, altitude. The others (GLL, GSA, GSV, RMA, VTG)
+are optional to send and mandatory to accept. In practice, a location packet is a GGA — optionally followed by
+more.</p>
+
+<table>
+  <caption>The fields of the minimum Tier 1 GGA sentence, in order. Empty fields (shown as back-to-back commas) are permitted.</caption>
+  <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">$G?GGA</td><td>Sentence ID. Talker is <span class="mono">GP</span> (GPS) or <span class="mono">GN</span> (multi-constellation) — same GGA either way.</td></tr>
+    <tr><td class="mono">hhmmss.sss</td><td>UTC of the fix</td></tr>
+    <tr><td class="mono">ddmm.mmmm</td><td>Latitude, degrees + decimal minutes</td></tr>
+    <tr><td class="mono">N / S</td><td>Latitude hemisphere</td></tr>
+    <tr><td class="mono">dddmm.mmmm</td><td>Longitude, degrees + decimal minutes</td></tr>
+    <tr><td class="mono">E / W</td><td>Longitude hemisphere</td></tr>
+    <tr><td class="mono">Q</td><td>Fix quality — 0 none, 1 GPS, 2 differential, 6 estimated</td></tr>
+    <tr><td class="mono">a.a</td><td>Altitude above mean sea level</td></tr>
+    <tr><td class="mono">M</td><td>Altitude units (meters)</td></tr>
+    <tr><td class="mono">*HH</td><td>Checksum (XOR of the characters between $ and *)</td></tr>
+  </tbody>
+</table>
+
+<h3>The unit identifier — the <span class="mono">$PP25</span> sentence</h3>
+<p>A GGA tells you <em>where</em>, but not <em>who</em>. Tier 1 solves that with an optional proprietary NMEA
+sentence appended in the same packet, immediately after the GGA's line terminator. Proprietary NMEA sentences
+begin with <span class="mono">$P</span> followed by a manufacturer tag; the Tier 1 tag is
+<strong><span class="mono">PP25</span></strong>, and the sentence carries the sending unit's identifier:</p>
+
+<figure>
+<svg viewBox="0 0 760 150" role="img" aria-label="The Tier 1 payload: GGA plus PP25">
+  <rect width="760" height="150" fill="#fff"/>
+  <text x="20" y="20" font-size="9" fill="#5a6a74">One Tier 1 location payload (ASCII, ≤128 octets):</text>
+  <rect x="20" y="30" width="720" height="34" rx="4" fill="#eef6fa" stroke="#0b6e99"/>
+  <text x="30" y="52" font-family="Consolas,monospace" font-size="11" fill="#0f3a4d">$GNGGA,174532.00,3034.8921,N,08155.7420,W,1,,12.3,M,,,*5C&lt;CR&gt;&lt;LF&gt;</text>
+  <rect x="20" y="74" width="720" height="34" rx="4" fill="#fff6ec" stroke="#b5661a"/>
+  <text x="30" y="96" font-family="Consolas,monospace" font-size="11" fill="#8a5316">$PP25,9076801,*3A&lt;CR&gt;&lt;LF&gt;</text>
+  <g font-size="8" fill="#5a6a74">
+    <text x="30" y="124">↑ position: time, lat, N/S, lon, E/W, quality, altitude</text>
+    <text x="30" y="138" fill="#8a5316">↑ identity: which unit sent it (the SUID)</text>
+  </g>
+  <text x="470" y="131" font-size="8" fill="#0b6e99">Both sentences travel in ONE unconfirmed data packet.</text>
+  <text x="470" y="143" font-size="8" fill="#5a6a74">Values above are illustrative, not a real fix.</text>
+</svg>
+<figcaption class="fig-cap">The decoded payload: a mandatory GGA giving the position, and an optional
+<span class="mono">$PP25</span> sentence giving the unit ID — the two together, in a single packet. (Example
+values are fabricated for illustration.)</figcaption>
+</figure>
+
+<div class="callout key">
+  <div class="callout-h">The convergence that makes validation trivial</div>
+  A base radio that relays received fixes over a data link emits exactly this pair —
+  <span class="mono">$GNGGA</span> for the position and <span class="mono">$PP25</span> for the unit ID. That
+  relay output is not a vendor convenience; it is the <em>same standardized payload</em> the radio pulled off
+  the air. So a working over-the-air decoder and the radio's own relay must produce byte-identical lines. That
+  gives a decoder builder something rare and powerful: a ground-truth answer to check against, character for
+  character. More on this in §9.
+</div>
+
+<!-- ================= 8. PIPELINE ================= -->
+<h2>The complete decode pipeline</h2>
+<p>Assemble the preceding sections and the full operation is a straight line of deterministic stages. Nothing
+in it is a guess; every box is a published transform with a known inverse.</p>
+
+<figure>
+<svg viewBox="0 0 760 300" role="img" aria-label="End to end decode pipeline">
+  <rect width="760" height="300" fill="#fff"/>
+  <defs><marker id="p1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#0b6e99"/></marker></defs>
+  <g font-size="9" text-anchor="middle">
+    <!-- row 1 -->
+    <rect x="24" y="26" width="150" height="44" rx="5" fill="#fff6ec" stroke="#b5661a"/><text x="99" y="44" fill="#14212b" font-weight="700">1 · Discriminator</text><text x="99" y="58" fill="#8a5316" font-size="8">DISC AUD → sound card</text>
+    <rect x="212" y="26" width="150" height="44" rx="5" fill="#eef6fa" stroke="#0b6e99"/><text x="287" y="44" fill="#14212b" font-weight="700">2 · Symbol slice</text><text x="287" y="58" fill="#5a6a74" font-size="8">4 levels → dibits</text>
+    <rect x="400" y="26" width="150" height="44" rx="5" fill="#eef6fa" stroke="#0b6e99"/><text x="475" y="44" fill="#14212b" font-weight="700">3 · Sync correlate</text><text x="475" y="58" fill="#5a6a74" font-size="8">find 0x5575F5FF77FF</text>
+    <rect x="588" y="26" width="150" height="44" rx="5" fill="#eef6fa" stroke="#0b6e99"/><text x="663" y="44" fill="#14212b" font-weight="700">4 · NID / DUID</text><text x="663" y="58" fill="#5a6a74" font-size="8">is this a data unit?</text>
+    <!-- row 2 -->
+    <rect x="588" y="128" width="150" height="44" rx="5" fill="#eef6fa" stroke="#0b6e99"/><text x="663" y="146" fill="#14212b" font-weight="700">5 · PDU header</text><text x="663" y="160" fill="#5a6a74" font-size="8">SAP = Location, DHO = 0</text>
+    <rect x="400" y="128" width="150" height="44" rx="5" fill="#e9f3ee" stroke="#0e7c86"/><text x="475" y="142" fill="#14212b" font-weight="700">6 · De-trellis</text><text x="475" y="156" fill="#5a6a74" font-size="8">+ de-interleave</text>
+    <rect x="212" y="128" width="150" height="44" rx="5" fill="#e9f3ee" stroke="#0e7c86"/><text x="287" y="142" fill="#14212b" font-weight="700">7 · FEC + CRC</text><text x="287" y="156" fill="#5a6a74" font-size="8">Golay/Ham/RS · pass?</text>
+    <rect x="24" y="128" width="150" height="44" rx="5" fill="#e9f3ee" stroke="#0e7c86"/><text x="99" y="142" fill="#14212b" font-weight="700">8 · Strip pad/CRC</text><text x="99" y="156" fill="#5a6a74" font-size="8">→ ASCII payload</text>
+    <!-- row 3 -->
+    <rect x="24" y="230" width="150" height="44" rx="5" fill="#eef6fa" stroke="#0b6e99"/><text x="99" y="248" fill="#14212b" font-weight="700">9 · Parse NMEA</text><text x="99" y="262" fill="#5a6a74" font-size="8">GGA + $PP25, checksum</text>
+    <rect x="212" y="230" width="150" height="44" rx="5" fill="#eef6fa" stroke="#0b6e99"/><text x="287" y="248" fill="#14212b" font-weight="700">10 · lat / lon / ID</text><text x="287" y="262" fill="#5a6a74" font-size="8">decimal degrees</text>
+    <rect x="400" y="230" width="150" height="44" rx="5" fill="#fff6ec" stroke="#b5661a"/><text x="475" y="248" fill="#14212b" font-weight="700">11 · Plot</text><text x="475" y="262" fill="#8a5316" font-size="8">dot on the map</text>
+  </g>
+  <!-- arrows -->
+  <g stroke="#0b6e99" stroke-width="1.8" fill="none">
+    <line x1="174" y1="48" x2="212" y2="48" marker-end="url(#p1)"/>
+    <line x1="362" y1="48" x2="400" y2="48" marker-end="url(#p1)"/>
+    <line x1="550" y1="48" x2="588" y2="48" marker-end="url(#p1)"/>
+    <path d="M663,70 L663,128" marker-end="url(#p1)"/>
+    <line x1="588" y1="150" x2="550" y2="150" marker-end="url(#p1)"/>
+    <line x1="400" y1="150" x2="362" y2="150" marker-end="url(#p1)"/>
+    <line x1="212" y1="150" x2="174" y2="150" marker-end="url(#p1)"/>
+    <path d="M99,172 L99,230" marker-end="url(#p1)"/>
+    <line x1="174" y1="252" x2="212" y2="252" marker-end="url(#p1)"/>
+    <line x1="362" y1="252" x2="400" y2="252" marker-end="url(#p1)"/>
+  </g>
+  <text x="663" y="104" font-size="8" text-anchor="middle" fill="#5a6a74" font-style="italic">voice frames discarded here</text>
+  <text x="99" y="206" font-size="8" text-anchor="middle" fill="#5a6a74" font-style="italic">no IP, no UDP — payload is NMEA</text>
+</svg>
+<figcaption class="fig-cap">The complete pipeline. Stages 1–4 recover and locate the frame; 5–8 undo the data-packet
+coding to bare bytes; 9–11 turn those bytes into a position on a map. Every stage is a known, invertible
+transform.</figcaption>
+</figure>
+
+<p>Note what is <em>not</em> in the pipeline. There is no vocoder — that block exists only to turn voice frames
+into audio, and we discard voice. (Avoiding it also sidesteps the one patent-encumbered corner of P25
+decoding, which guards voice, not data.) There is no SDR, no RF tuning, no channel-chasing — the radio sits on
+one channel and feeds us baseband continuously. And there is no IP/UDP reassembly, because the dedicated SAP
+and zero header-offset put the NMEA directly in the payload. The job is smaller than a general P25 decoder,
+not larger.</p>
+
+<!-- ================= 9. VALIDATION ================= -->
+<h2>Validation — the known-answer method</h2>
+<p>Building a multi-stage decoder blind is miserable; a single wrong permutation in the interleaver produces
+output indistinguishable from noise, with no hint of where the error is. The way to make it tractable is to
+decode against a <strong>known answer</strong>.</p>
+
+<p>A base radio that already relays received fixes gives you exactly that. Put it and the receiver on the same
+bench: the receiver's discriminator feeds the sound card (our decoder's input), while the base radio's relay
+output provides the finished NMEA for the very same transmission (the answer). Now every stage of the decoder
+can be checked against ground truth, and — because the relay output and the over-air payload are the same
+standardized bytes — a correct decode must match it character for character.</p>
+
+<figure>
+<svg viewBox="0 0 760 184" role="img" aria-label="Known answer validation rig">
+  <rect width="760" height="184" fill="#fff"/>
+  <!-- over the air -->
+  <path d="M40,40 l0,22 M31,40 l9,-10 l9,10" fill="none" stroke="#14212b" stroke-width="1.4"/>
+  <text x="40" y="78" font-size="8" text-anchor="middle" fill="#5a6a74">a field unit keys up</text>
+  <line x1="40" y1="62" x2="40" y2="96" stroke="#c7d2d8"/>
+  <!-- receiver -->
+  <rect x="96" y="40" width="120" height="44" rx="5" fill="#eef6fa" stroke="#0b6e99"/>
+  <text x="156" y="58" font-size="9.5" text-anchor="middle" fill="#14212b" font-weight="700">receiver</text>
+  <text x="156" y="72" font-size="8" text-anchor="middle" fill="#5a6a74">→ DISC AUD</text>
+  <line x1="56" y1="62" x2="96" y2="62" stroke="#5a6a74" marker-end="url(#r1)"/>
+  <!-- base radio -->
+  <rect x="96" y="112" width="120" height="44" rx="5" fill="#f6f9fa" stroke="#c7d2d8"/>
+  <text x="156" y="130" font-size="9.5" text-anchor="middle" fill="#14212b" font-weight="700">base radio</text>
+  <text x="156" y="144" font-size="8" text-anchor="middle" fill="#5a6a74">→ relayed NMEA</text>
+  <line x1="40" y1="96" x2="96" y2="134" stroke="#c7d2d8" marker-end="url(#r2)"/>
+  <!-- PC -->
+  <rect x="300" y="52" width="180" height="92" rx="6" fill="#fff" stroke="#14212b" stroke-width="1.3"/>
+  <text x="390" y="70" font-size="9.5" text-anchor="middle" fill="#14212b" font-weight="700">one PC</text>
+  <rect x="316" y="80" width="148" height="24" rx="3" fill="#eef6fa" stroke="#0b6e99"/><text x="390" y="96" font-size="8" text-anchor="middle" fill="#0f3a4d">our decoder (from sound card)</text>
+  <rect x="316" y="110" width="148" height="24" rx="3" fill="#f6f9fa" stroke="#c7d2d8"/><text x="390" y="126" font-size="8" text-anchor="middle" fill="#5a6a74">base relay feed (the answer)</text>
+  <line x1="216" y1="62" x2="300" y2="86" stroke="#0b6e99" stroke-width="1.6" marker-end="url(#r1)"/>
+  <line x1="216" y1="134" x2="300" y2="120" stroke="#9aa6ad" stroke-width="1.4" marker-end="url(#r2)"/>
+  <!-- diff -->
+  <rect x="540" y="78" width="180" height="40" rx="6" fill="#fff6ec" stroke="#b5661a" stroke-width="1.4"/>
+  <text x="630" y="95" font-size="10" text-anchor="middle" fill="#14212b" font-weight="700">diff, char-for-char</text>
+  <text x="630" y="109" font-size="8" text-anchor="middle" fill="#8a5316">match = decoded · mismatch = shows the bug</text>
+  <line x1="480" y1="98" x2="540" y2="98" stroke="#b5661a" stroke-width="1.8" marker-end="url(#r3)"/>
+  <defs>
+    <marker id="r1" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0b6e99"/></marker>
+    <marker id="r2" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#9aa6ad"/></marker>
+    <marker id="r3" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#b5661a"/></marker>
+  </defs>
+</svg>
+<figcaption class="fig-cap">The known-answer rig. The same keyup drives both our decoder (via discriminator audio)
+and the trusted reference (via the base radio's relay). The reference localizes any bug to the exact byte that
+differs — something a map plot alone can never do.</figcaption>
+</figure>
+
+<p>Two distinct checks fall out of this arrangement, and both are worth keeping:</p>
+<ul>
+  <li><strong>The byte diff is the microscope.</strong> While the decoder is still being built, a mismatch
+  points at the exact character that is wrong, which points at the stage that is wrong. This is how you climb
+  the FEC stack without flying blind.</li>
+  <li><strong>The map plot is the final proof.</strong> The real goal is to run the decoder with the reference
+  feed <em>disconnected</em> and still watch the fix land on the correct position. A correct dot on the map,
+  sourced purely from discriminator audio, is the whole objective realized: location off the air with nothing
+  but a receiver and a sound card.</li>
+</ul>
+
+<!-- ================= 10. TIMING ================= -->
+<h2>Timing, capacity, and operational behavior</h2>
+<p>A Tier 1 fix is small and quick. The data packet is deliberately capped so that a location report never
+monopolizes the channel. The practical envelope:</p>
+
+<table>
+  <caption>Representative Tier 1 location packet sizes and on-air durations. A GPS fix lives at the small end of what P25 can carry.</caption>
+  <thead><tr><th>Update type</th><th>Payload</th><th>Approx. airtime</th></tr></thead>
+  <tbody>
+    <tr><td>Minimum GPS update</td><td class="mono">~24 bytes</td><td>~175 ms</td></tr>
+    <tr><td>Typical consumer-GPS sentence</td><td class="mono">~71 bytes</td><td>~300 ms</td></tr>
+    <tr><td>Maximum standard NMEA</td><td class="mono">~83 bytes</td><td>~325 ms</td></tr>
+    <tr><td>NMEA + unit-ID / user data</td><td class="mono">~128 bytes</td><td>~385 ms</td></tr>
+  </tbody>
+</table>
+
+<p>The application payload is capped at 128 octets precisely to keep airtime down; encryption, where used, adds
+only tens of milliseconds. The operational consequences follow directly from the unconfirmed, PTT-shaped design:</p>
+<ul>
+  <li><strong>No channel hog.</strong> A few hundred milliseconds per fix means location rides alongside voice
+  without a dedicated data channel.</li>
+  <li><strong>Freshness over guarantee.</strong> With no acknowledgement, a lost fix is simply not re-sent as
+  an old value; a radio may re-transmit a stale fix a small number of times or on request, but the design
+  prefers a new fix to a confirmed old one.</li>
+  <li><strong>Capacity is an interval trade.</strong> Because many radios may transmit unconfirmed on the same
+  channel, reliable delivery falls as the number of units and the update rate rise. Longer update intervals
+  support more units at a given reliability — a planning dial, not a protocol limit. For a fire-ground model
+  where a fix rides on each PTT (a mayday, an arrival, a size-up), the natural human cadence keeps the load low.</li>
+</ul>
+
+<!-- ================= 11. REFERENCE ================= -->
+<h2>Reference tables &amp; glossary</h2>
+
+<h3>Key constants</h3>
+<table>
+  <tbody>
+    <tr><td style="width:46%"><strong>Symbol rate</strong></td><td class="mono">4800 symbols/s (9600 bps)</td></tr>
+    <tr><td><strong>Modulation</strong></td><td>C4FM, four-level FM, ±1800 / ±600 Hz</td></tr>
+    <tr><td><strong>Frame sync</strong></td><td class="mono">0x5575F5FF77FF (48 bits / 24 dibits)</td></tr>
+    <tr><td><strong>On-air block size</strong></td><td class="mono">196 coded bits (header and each data block)</td></tr>
+    <tr><td><strong>Burst length</strong></td><td class="mono">48 + 64 + (1 + N)×196 bits</td></tr>
+    <tr><td><strong>Delivery</strong></td><td>Unconfirmed data packet (no ACK)</td></tr>
+    <tr><td><strong>SAP</strong></td><td>dedicated Location Service (not the IP/packet-data SAP)</td></tr>
+    <tr><td><strong>Data header offset</strong></td><td class="mono">0 (payload begins immediately)</td></tr>
+    <tr><td><strong>Max application payload</strong></td><td class="mono">128 octets</td></tr>
+    <tr><td><strong>Mandatory sentence</strong></td><td class="mono">GGA</td> </tr>
+    <tr><td><strong>Unit-ID sentence</strong></td><td class="mono">$PP25,&lt;UID&gt;,…*HH</td></tr>
+    <tr><td><strong>NMEA checksum</strong></td><td>XOR of characters between <span class="mono">$</span> and <span class="mono">*</span></td></tr>
+  </tbody>
+</table>
+
+<h3>Glossary</h3>
+<table>
+  <tbody>
+    <tr><td style="width:20%"><strong>CAI</strong></td><td>Common Air Interface — the P25 over-the-air signaling standard</td></tr>
+    <tr><td><strong>C4FM</strong></td><td>Compatible four-level FM — the Phase 1 modulation</td></tr>
+    <tr><td><strong>Dibit</strong></td><td>Two bits; one C4FM symbol carries one dibit</td></tr>
+    <tr><td><strong>DUID</strong></td><td>Data Unit ID — the frame-type field inside the NID</td></tr>
+    <tr><td><strong>FEC</strong></td><td>Forward Error Correction — the trellis/Golay/Hamming/RS/CRC stack</td></tr>
+    <tr><td><strong>FS<sub>R</sub></strong></td><td>Fixed Station Repeater</td></tr>
+    <tr><td><strong>LIS</strong></td><td>Location Information System — the GPS source</td></tr>
+    <tr><td><strong>LSHS</strong></td><td>Location Service Host System — the mapping display (our decoder's role)</td></tr>
+    <tr><td><strong>NAC</strong></td><td>Network Access Code — which network traffic belongs to</td></tr>
+    <tr><td><strong>NID</strong></td><td>Network Identifier — NAC + DUID, follows the frame sync</td></tr>
+    <tr><td><strong>NMEA 0183</strong></td><td>The marine/GPS ASCII sentence standard carrying the fix</td></tr>
+    <tr><td><strong>PDU</strong></td><td>Packet Data Unit — header block + data blocks</td></tr>
+    <tr><td><strong>SAP</strong></td><td>Service Access Point — the field that selects which service a packet belongs to</td></tr>
+    <tr><td><strong>SU</strong></td><td>Subscriber Unit — a radio</td></tr>
+    <tr><td><strong>Tier 1 / Tier 2</strong></td><td>Field (SU-to-SU NMEA) vs. infrastructure (IP) location services</td></tr>
+  </tbody>
+</table>
+
+<hr class="soft">
+<p class="foot">Independent engineering synthesis. Assembled from the Project 25 Tier 1 Location Services and
+Common Air Interface data specifications, open-source P25 decoder internals, a receiver service manual, and
+live bench observation, then reorganized and expanded into original explanatory text and figures. It reproduces
+no copyrighted standard; numeric values are the functional facts an implementer requires. Prepared by Jim Gaddy
+with Claude (Anthropic), November 2026.</p>
+
+</body>
+</html>
