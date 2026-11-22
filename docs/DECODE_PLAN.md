@@ -97,19 +97,29 @@ Because we start from **discriminator audio**, the chain is: **DISC AUD → soun
 
 ---
 
-## The transport — RESOLVED toward the simpler path (authoritative, 2026-11-22)
+## The transport & payload — CONFIRMED by the normative spec TIA-102.BAJB-A (2026-11-22)
 
-The open question was: does BK's Tier 1 location ride as full **SNDCP/IPv4/UDP** packet data, or as the simpler **dedicated-SAP, Direct/Repeated Data** unit (NMEA carried directly, no IP)? Authoritative sources now answer it — it's the **simpler path**:
+Jim obtained the actual spec (**TIA-102.BAJB-A**, 2014, "Project 25 Tier 1 Location Services Specification"). It pins every remaining detail. *(The spec is copyrighted / "Limited Use Only" — it is NOT in this repo and not reproduced; what follows is the functional protocol in our own words. Normative sources: BAJB-A + **TIA-102.BAAC-C** "Reserved Values" for the SAP number + **TIA-102.BAEA-B** "Data Overview" for the data-bearer mechanics.)*
 
-- **TIA's own spec announcement:** Tier 1 location *"utilizes a **dedicated Service Access Point** over the Common Air Interface,"* a *"simple **SU-to-SU** interface for the **Direct Data and Repeated Data** configurations,"* with position *"formatted as described in **NMEA 0183**."* A *dedicated* SAP — not the general IP/packet-data SAP.
-- **The fork's own code confirms the contrast:** it only emits an IP datagram when **`sap == 0`** (SAP 0 = the IP/SNDCP packet-data path that Motorola TMS/LRRP rides; SNDCP SN-DATA header `51 00` → IPv4). Tier 1's **dedicated SAP ≠ 0**, so a Tier 1 location PDU falls through the fork as an "other/unhandled sap" header — i.e., it is **not** on the IP path.
-- **So the architecture is set:** slice → sync → NID → PDU header (read **SAP** = the location SAP, plus format / blocks-to-follow / pad / data-header-offset) → de-trellis + deinterleave the data blocks → strip the 4-byte packet CRC + pad → **the payload IS the NMEA, directly** (no IP/UDP to unwrap). We reuse the fork's symbol/sync/trellis/deinterleave/CRC machinery and **skip its SNDCP/IP layer entirely** — simpler than their path.
-- **The sentences are named by the standard** (PTIG Capabilities Guide, "Tier 1 Unit Location – NMEA 0183 Sentences"): **GGA** (Global Positioning System Fix Data — the sentence BAJB is referenced against), plus GLL, GSA, GSV, RMC, VTG. The primary fix sentence is **GGA**, which is exactly the **`$G?GGA`** Jim's BK RNDIS feed already emits — the over-air sentence and the answer-key sentence are the same thing.
+**Transport (§3.2.1 — the answer to the old "one unknown"):** Tier 1 location **shall use the CAI Data Bearer Service with UNCONFIRMED Data Packet Delivery** over the Uₘ interface. Concretely:
+- **Unconfirmed** data packets — **no ACK/NACK**, fire-and-forget (matches the PTT model exactly). Unconfirmed data blocks carry **12 user octets** each.
+- The packet header's **SAP Identifier = the "Location Service" reserved value** (defined in TIA-102.BAAC-C) — a **dedicated SAP, NOT SAP 0** (SAP 0 is the IP/SNDCP path the fork handles). We read the exact number off the header on the bench (or from BAAC-C).
+- **Data Header Offset = 0.**
+- **Max application message = 128 octets** (so the whole NMEA payload is ≤128 bytes).
+- → **Decode path, now spec-locked:** slice → sync → NID (data) → unconfirmed-PDU header (SAP=Location, DHO=0, blocks-to-follow) → de-trellis (rate 1/2) + deinterleave + Golay/Hamming + packet CRC32 on the 12-octet blocks → strip pad/CRC → **the payload is ASCII NMEA, directly.** No IP, no UDP, no SNDCP. The simpler path, confirmed.
 
-**What the bench still confirms** (small, not architectural): the exact **dedicated-SAP number**, whether BK wraps any vendor framing around the NMEA, and confirmed-vs-unconfirmed delivery. The known-plaintext rig reads these off in one session — but the decoder's shape is now fixed.
+**Payload — the exact bytes (§3.2.1 Table 1/2, §3.2.2.2):**
+- The transmitter **must** send **GGA** (Global Positioning System Fix Data); GLL/GSA/GSV/RMA/VTG are optional-TX / mandatory-RX. So a location packet carries **GGA** (± the optional others).
+- The **minimum GGA** is a standard NMEA GGA with several fields left empty (sats, HDOP, geoid, DGPS age all blank): `$G?GGA,<UTC hhmmss.sss>,<lat ddmm.mmmm>,<N/S>,<lon dddmm.mmmm>,<E/W>,<Q>,,<alt a.a>,M,,,*HH␍␊`. (Spec writes talker **"GP"**; a multi-GNSS radio emits **"GN"** — same GGA sentence, which is why Jim's RNDIS shows `$GNGGA`.)
+- **Optional Additional Data = a proprietary `$PP25` sentence**, appended in the **same packet** right after the GGA's CR/LF: `$PP25,<UID>,<free-form>*HH␍␊`, where UID = the unit's SUID (≤8 chars).
+- **★ This nails the answer key.** Jim's BK RNDIS feed emits **`$GNGGA` + `$PP25,<unit_id>`** — which is **exactly** the Tier 1 payload (the mandatory GGA + the standard `$PP25` UID sentence). So the RNDIS feed *is* the decoded over-air payload, byte-for-byte: our decoder's output should equal the RNDIS line **character-for-character**. The "apple" is the whole fruit.
 
-**First experiment (unchanged, now confirmatory rather than exploratory):**
-> **DISC AUD → slice / sync / NID → read the PDU header's SAP → de-trellis + deinterleave the data blocks → the NMEA should be sitting right there → diff against the known RNDIS `$G?GGA`.**
+**Packet sizes (§4 Table 4 — authoritative; supersedes the earlier ~235-byte estimate):** minimum GPS update **24 bytes / 175 ms**; typical ~71 bytes / 300 ms; max standard NMEA **83 bytes / 325 ms**; **NMEA + user data 128 bytes / 385 ms** (encryption adds ~25–40 ms). A GPS keyup is a **~0.2–0.4 s** burst carrying **24–128 payload bytes**. (Delivery is unconfirmed with no retry protocol; the SU may retransmit a stale fix up to 4× and always retransmits on query — SU behavior, not a wire-format change.)
+
+**The ONLY residual:** the exact numeric **SAP value** (lives in BAAC-C, which we don't have) — and the decoder reads it straight off the header, so it's not a blocker; confirm on the bench. Everything else is spec-locked.
+
+**First experiment (now a confirmation, not an exploration):**
+> **DISC AUD → slice / sync / NID → unconfirmed-PDU header → de-trellis + deinterleave the 12-octet blocks → the payload should read `$G?GGA,…*HH␍␊$PP25,…*HH␍␊` → diff against the known RNDIS line, character-for-character.**
 
 ---
 
@@ -120,12 +130,13 @@ The open question was: does BK's Tier 1 location ride as full **SNDCP/IPv4/UDP**
 | BK RNDIS NMEA path (the answer key) | **PROVEN** — live, in use (tracker + Lookout, in the Unlocked family) |
 | Discriminator tap = DPH-CMD J2 pin **CZ8 DISC AUD** | **PROVEN** (Jim confirmed; re-derived from schematic p.6-49) |
 | Discriminator audio = FM demod done → straight to symbols | **ESTABLISHED** (radio theory of operation) |
-| Standard = TIA-102.BAJB Tier 1, NMEA in a dedicated SAP, interoperable | **RESEARCHED** (strong; distinct from Motorola LRRP) |
+| Standard = TIA-102.BAJB-A Tier 1 (we have the spec) | **CONFIRMED** — NMEA over a dedicated Location-Service SAP, unconfirmed packets, ≤128 octets; distinct from Tier 2/LRRP |
 | No vocoder needed (data not voice → no DVSI patent) | **ESTABLISHED** |
 | Decode stack + parts donors (OP25, russinnes fork) | **MAPPED** |
 | Donor code pulled/studied in-repo | **NOT YET** — clone OP25 + the fork, map reusable parts |
-| Tier 1 NMEA sentences | **GGA** primary (BAJB-referenced), + GLL/GSA/GSV/RMC/VTG allowed (PTIG guide) — GGA matches Jim's RNDIS `$G?GGA` |
-| Transport encapsulation (SNDCP/IP vs simple SAP) | **RESOLVED (authoritative): dedicated SAP, direct NMEA, NOT IP** — bench confirms the exact SAP# + any BK framing |
+| Tier 1 payload | **CONFIRMED (spec):** mandatory **GGA** (+ optional GLL/GSA/GSV/RMA/VTG) then a `$PP25,<UID>` sentence — i.e. **exactly** Jim's RNDIS `$GNGGA`+`$PP25`, a byte-for-byte answer key |
+| Transport encapsulation | **CONFIRMED (spec): Unconfirmed Data Packet, SAP = Location Service (BAAC-C), DHO=0, direct NMEA, NOT IP/SNDCP** — only the exact SAP# is read on the bench |
+| Packet size / airtime | **CONFIRMED (spec Table 4):** 24–128 payload bytes, ~175–385 ms burst |
 | End-to-end OTA decode of a real GPS fix | **NOT YET** — the goal |
 
 ## Next steps
@@ -186,7 +197,7 @@ Jim's first gate: **feed the sound card something a decoder says "yep, that's re
 - RadioReference "Analyze P25 Packet Data (LRRP/Location)" DSD+ thread — LRRP structure + hrh17's Tait Phase-1 NMEA GPS WAVs
 - TIA announcement — "TIA Issues New P25 Tier 1 Location Services Specification" (standards.tiaonline.org): **dedicated SAP**, SU-to-SU Direct/Repeated Data, NMEA 0183, portable-host field use (not FNE)
 - P25 PTIG Capabilities Guide (project25.org) — "Tier 1 Unit Location – NMEA 0183 Sentences": GGA (BAJB) + GLL/GSA/GSV/RMC/VTG; Tier 2 = LRRP over IP
-- TIA-102.BAJB-B (current Tier 1 Location Services spec) + TSB-102.BAJA (Location Services Overview) — the normative docs (paywalled; the SAP number/data-unit layout would come from here or the bench)
+- **TIA-102.BAJB-A** (2014 Tier 1 Location Services Specification) — the normative spec (copyrighted/"Limited Use", NOT in this repo): §3.2.1 transport (unconfirmed data packet, Location-Service SAP, DHO=0, ≤128 octets), Table 1/2 (GGA mandatory + minimum fields), §3.2.2.2 (`$PP25` UID sentence), Table 4 (packet sizes/airtime). Normatively depends on **TIA-102.BAAC-C** (the SAP reserved value) + **TIA-102.BAEA-B** (data-bearer mechanics). TSB-102.BAJA = overview.
 - OP25 decoder + P25-in-UDP encapsulation wikis (osmocom)
 - "A Look at Project 25 (P25) Digital Radio" — CAI/framing (GNU Radio wiki, PDF)
 - dsd-fme / OP25 / SDRTrunk comparison (pistack.xyz guide)
