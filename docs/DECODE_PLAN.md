@@ -67,9 +67,20 @@ Jim's steer: *"The P25 packet structure is highly regulated for public safety us
 ## P25 Phase 1 physical-layer facts (for the symbol slicer)
 
 - **C4FM**, 4-level FM: **4800 symbols/s × 2 bits = 9600 bps**.
-- **Frame sync** = a fixed **24-dibit** pattern; after sync comes the **NID = NAC (network access code) + DUID (data unit ID)**. DUID **7 = TSBK** (trunking); data PDUs carry the packet payload.
+- **Exact dibit → symbol → deviation (the slicer LUT — authoritative, from the OP25 DecoderPage):**
+
+  | dibit | symbol | C4FM deviation | CQPSK phase (Phase-1 QPSK equiv) |
+  |---|---|---|---|
+  | `01` | +3 | **+1.8 kHz** (top level) | +135° |
+  | `00` | +1 | **+0.6 kHz** | +45° |
+  | `10` | −1 | **−0.6 kHz** | −45° |
+  | `11` | −3 | **−1.8 kHz** (bottom level) | −135° |
+
+  On the discriminator, deviation ∝ amplitude, so the four amplitude bands map top→bottom = `01 / 00 / 10 / 11`. (We're C4FM; the CQPSK column is the π/4-DQPSK equivalent, listed for completeness.)
+- **Frame sync (FS)** = the fixed 48-bit / 24-dibit pattern **`0x5575F5FF77FF`** — confirmed straight off the OP25 DecoderPage Wireshark capture ("Frame Synchronization: 5575F5FF77FF"). This is the **correlation template** that locates frame start in the symbol stream. After FS: **NID = NAC + DUID** (DUID 7 = TSBK; data PDUs carry the packet payload).
 - **PDU**: 12-byte header + 12-byte (unconfirmed) or 16-byte (confirmed) data blocks.
 - **FEC** on the data path: **trellis** coding (rate 1/2 unconfirmed, 3/4 confirmed), plus **Golay / Hamming / Reed-Solomon / CRC** depending on the field. The decoder has to undo these to recover clean bytes.
+- **Our entry point, confirmed against OP25's own block diagram** (DecoderPage): the chain is USRP → Channel Filter → Power Squelch → **FM Demodulator** → Symbol Filter → 4FSK Demodulator → Symbol Slicer → P25 Decoder → Audio Sink, with a **Packet Sniffer / IP-encapsulation** branch off the P25 Decoder. Our **discriminator tap = the FM-Demodulator output**, so we enter at the **Symbol Filter**, skip the whole RF front end, and follow the **Packet Sniffer (data) branch**, not the IMBE/voice branch. OP25's own "Signal Scope" tap sits exactly where Jim's scope shot came from.
 
 Because we start from **discriminator audio**, the chain is: **DISC AUD → sound card → 4-level symbol slice → frame sync → NID → PDU reassembly + FEC → payload bytes → NMEA extraction.** No RF, no vocoder.
 
