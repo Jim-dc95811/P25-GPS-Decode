@@ -37,12 +37,15 @@ This rig is the single most valuable asset we have, and it's the thing almost no
 
 ## The tap point — PROVEN (Jim confirmed; independently re-derived from the schematic)
 
-**Donor radio:** BK **DPH-CMD** portable (Jim has these in abundance, free from the trash — "very good radios"). We only ever **receive**; nothing is transmitted or altered.
+**The receiver only has to hand us the raw FM detector output (the discriminator / "detected signal").** It does **not** need to understand P25 — any flat FM receiver tuned to the P25 channel works, because the detector outputs the frequency deviation regardless of what digital mode the radio tries to decode. We do the P25 decode in software. We only ever **receive**; nothing is transmitted or altered. Two tap options:
 
-**Where to tap:** the recovered FM baseband — **"DISC AUD"** — on the radio's main board-to-board connector:
+**★ PREFERRED — Kenwood NX-700 mobile, external DB-25 pin 19 = DEO "Detected signal output" (NEW 2026-11-22, Jim's switch of RX radio).** The NX-700 brings the raw discriminator out on its **rear DB-25 accessory connector — no disassembly, no soldering to an internal pin, just a DB-25 cable.** From the connector pinout spec: **pin 19 DEO**, Output, Analog; **~0.28 Vp-p**; internally **AC-coupled via a 4.7 µF cap** into a **≥47 kΩ** load; frequency response flat to within ~6 dB across **20–4800 Hz in WIDE**, low-passing hard above 4800 Hz (−24 dB by 7200). Ground on **pin 18** (or 7/11).
+  - **⚠ SET THE RADIO WIDE.** The DEO's *Narrow* response droops ~**15 dB** across 20–4800 Hz and would distort the 4-level symbols; *Wide* (12.5 kHz) passes the full C4FM baseband (which sits under ~2.9 kHz anyway).
+  - Feed the sound-card **LINE-IN** (not mic-in), input gain up to use the ~0.28 Vpp (≈100 mVrms). The 4.7 µF coupling high-passes at only ~0.7–3 Hz, so baseline wander over a ~0.2 s packet is negligible — this tap is cleaner than the AC-coupling worry suggested.
+  - **Do NOT use pin 17 AFO** ("RX filtered audio output") — that is de-emphasized/filtered *voice* audio; **DEO (pin 19)** is the flat detector output we need.
+  - The NX-700 is a NEXEDGE/NXDN radio — irrelevant; the DEO is the raw detector. Program a **Wide** channel on the P25 frequency, squelch/monitor **open** so the DEO streams continuously. Files: `KW NX-700 DB 25 pinout.png` + NX-700 service manual (Jim's; not in repo).
 
-- Connector **J2 "TO SYSTEM BOARD"**, pin **CZ8 = DISC AUD** (schematic page **6-49** in the DPH-CMD service manual; the J2 pin list ran CZ1 GND · CZ2 SQ_NOISE · CZ3 PST · CZ4 SWA+ · CZ5 — · CZ6 RX+5V · CZ7 -DPTT · **CZ8 DISC AUD** · CZ9 CAR_PRES · CZ10 WIDE_IF).
-- **A pin on a major connector is preferred** (Jim's rule): mechanically clean, repeatable, no fine soldering to an IC leg.
+**Alternate — BK DPH-CMD portable, internal connector J2 pin CZ8 = DISC AUD.** The original tap (Jim has these in abundance). Internal board-to-board connector **J2 "TO SYSTEM BOARD"**: CZ1 GND · CZ2 SQ_NOISE · CZ3 PST · CZ4 SWA+ · CZ6 RX+5V · CZ7 -DPTT · **CZ8 DISC AUD** · CZ9 CAR_PRES · CZ10 WIDE_IF (schematic p.6-49). Works, but needs the radio opened — the NX-700 DEO is the cleaner path now.
 
 **Why discriminator audio is the right tap:** it is the **FM demodulator's output — demodulation is already done.** We do NOT need an SDR or an RF front end to recover C4FM; the radio's own receiver has already turned RF into the 4-level baseband. We go **straight to symbol slicing.** This is the whole reason tapping a hardware radio is cleaner than SDR for our narrow goal.
 
