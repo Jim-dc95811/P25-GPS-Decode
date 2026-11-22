@@ -120,8 +120,33 @@ Desk research has done its job: standard, stack, tap, tooling, and the one empir
 1. **Pull the parts (desk task, before the bench).** Clone **OP25** (osmocom) and **`russinnes/P25-sndcp-packet-decoder`** and READ the real implementation — the C4FM symbol slicer, the 24-dibit sync, NID/DUID typing, the trellis/Golay/Hamming/RS FEC, the PDU reassembly, and (in the fork) the SNDCP→IP/UDP path + its NMEA parser. Map exactly which files/functions are reusable as-is vs. need an input adapter (discriminator / sound-card in place of SDR) and the NMEA-extract add. Turns "the chain is buildable" into "here are the specific parts and the specific glue."
 2. **The bench (the real progress).** The known-plaintext rig and experiment #1 above. Optionally one more desk thread first — the exact **TIA-102.BAJB Tier 1 SAP data-unit layout**, or **OP25's discriminator-audio input mode** (so the Sound Blaster is ready to wire straight in).
 
+---
+
+## Prior art, reference captures & the first rung (researched 2026-11-22)
+
+Jim's first gate: **feed the sound card something a decoder says "yep, that's real data."** And: find existing Wireshark P25 work so we learn the structure precisely. Both answered — we even cloned and read the real code.
+
+**Is there a P25 Wireshark dissector / captures? Yes, partially.**
+- **The precise structural reference is one file: `wireshark/plugins/p25/packet-p25cai.c`** — the OP25 team's **P25 Common Air Interface dissector** (decodes CAI frames field-by-field; a commit history entry reads "added TSBK dissection"). It's fed to Wireshark via **OP25's "P25-in-UDP" encapsulation** (UDP port **23456**). Wireshark has **no built-in P25 dissector** and ships **no sample `.pcap`** (its P25 page is a stub with a placeholder). The dissector source lives only on an anti-bot-walled host (gitea.osmocom.org) — to read it we clone a mirror, not WebFetch.
+- **Motorola LRRP location** has been community-reverse-engineered (DSD+ forums): binary **CMD/token** structure (e.g. a "Triggered Location Start Response" = CMD `0x0B`, token `0x22`…), riding SNDCP→IP/UDP. **This is the proprietary path — NOT our target.** Our Tier 1 is **ASCII NMEA**, not LRRP's binary tokens. Useful only so we don't chase it.
+
+**The hard middle is real, and we've read it.** Cloned to the sandbox (`/home/claude/p25src/`, NOT vendored into this repo): **`boatbod/op25`** (maintained fork — note it **dropped** the legacy Wireshark plugin) and **`russinnes/P25-sndcp-packet-decoder`** (the data fork). The fork's **`op25/gr-op25_repeater/lib/p25p1_fdma.cc`** (~2800 lines, "heavily modified for PDU decoding") already does: P25 **PDU reassembly → IP datagram build → IP/UDP header validation (checksums) → payload extraction → full hexdump**, with per-RID reassembly windows, CRC32 checks, salvage logic, a **header-format × SAP histogram**, and fire-and-forget JSON/UDP output of recovered text (to `127.0.0.1:51001/51003`). Observed real traffic on its target systems: **SNDCP header begins `51 00`**, datagrams are TMS/ARS **text** on UDP ports **4005 (ARS) / 4007 (TMS)**, ~200 bytes. **What it is NOT:** it takes **SDR input** (not a sound card) and targets **text, not location/NMEA**. So the reusable gift is the entire symbols→PDU→IP/UDP→hexdump core + diagnostics; the glue we add is (a) sound-card/discriminator input and (b) recognize-and-extract NMEA.
+- **This sharpens the one unknown into a one-glance read:** the fork already classifies every PDU by **SAP**. SNDCP packet data carries a specific SAP; a TIA "dedicated SAP, direct data" Tier 1 unit carries a *different* one. So when we feed our discriminator, **the SAP value in the decoded header tells us immediately** whether BK's location rides SNDCP/IP/UDP or a simpler direct-SAP unit — the fork's own hexdump/ledger shows it.
+
+**Known-good signals to feed first (the "yep, real data" input), best → good:**
+1. **Jim's own rig** — the ultimate reference: BK base RNDIS NMEA = labeled ground truth for the *exact* bytes his radios send (the "apple").
+2. **Tait Phase-1 P25 GPS WAV files "using NMEA formatting"** — offered by user *hrh17* on the RadioReference DSD+ thread. A *different manufacturer's* P25 Phase-1 GPS in NMEA → corroborates the interoperable-Tier-1-NMEA story AND is a near-exact analog of our target. (Jim can grab these from the thread.)
+3. **SIGID's `APCO25_P1_Data_C4FM_Audio.mp3`** — a free Phase-1 **data channel** C4FM recording (SIGID also has voice + trunking-control samples). Not GPS, but proves the sound→symbol→frame chain locks on real P25 data before we touch the radio.
+
+**So the first rung, concretely:** run a known-good recording (Tait NMEA WAV ideal; SIGID data mp3 as a warm-up) through a discriminator-audio-capable decoder (DSD-FME, or OP25's UDP/audio input) and watch it **lock sync and emit frames / a hexdump** — that readout *is* "yep, that's real data." Then swap in our own DISC AUD and diff against the RNDIS NMEA. The fork's hexdump + SAP ledger is the exact instrument for both.
+
 ## Sources
-- russinnes/P25-sndcp-packet-decoder (GitHub) — SNDCP→IPv4/UDP decode fork of OP25
+- russinnes/P25-sndcp-packet-decoder (GitHub) — SNDCP→IPv4/UDP decode fork of OP25 (read its `lib/p25p1_fdma.cc`)
+- boatbod/op25 (GitHub) — maintained OP25 fork (no legacy Wireshark plugin)
+- OP25 legacy `wireshark/plugins/p25/packet-p25cai.c` (gitea.osmocom.org) — the P25 CAI Wireshark dissector
+- wiki.wireshark.org/P25 — Wireshark P25 page (no native dissector, no sample pcap; P25-in-UDP port 23456)
+- sigidwiki.com/wiki/P25 — sample recordings incl. `APCO25_P1_Data_C4FM_Audio.mp3` (Phase-1 data channel)
+- RadioReference "Analyze P25 Packet Data (LRRP/Location)" DSD+ thread — LRRP structure + hrh17's Tait Phase-1 NMEA GPS WAVs
 - OP25 decoder + P25-in-UDP encapsulation wikis (osmocom)
 - "A Look at Project 25 (P25) Digital Radio" — CAI/framing (GNU Radio wiki, PDF)
 - dsd-fme / OP25 / SDRTrunk comparison (pistack.xyz guide)
