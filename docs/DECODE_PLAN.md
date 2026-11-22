@@ -97,16 +97,19 @@ Because we start from **discriminator audio**, the chain is: **DISC AUD → soun
 
 ---
 
-## The one real unknown — and the rig settles it
+## The transport — RESOLVED toward the simpler path (authoritative, 2026-11-22)
 
-**Does BK's Tier 1 location ride as full SNDCP / IPv4 / UDP packet data, or as the simpler "dedicated SAP, Direct/Repeated Data" unit** that TIA-102.BAJB describes (NMEA carried more directly, no IP layer)?
+The open question was: does BK's Tier 1 location ride as full **SNDCP/IPv4/UDP** packet data, or as the simpler **dedicated-SAP, Direct/Repeated Data** unit (NMEA carried directly, no IP)? Authoritative sources now answer it — it's the **simpler path**:
 
-- If **SNDCP/IP/UDP** → the russinnes fork's reassembly core is near-directly reusable; we just add NMEA extraction from the datagram payload.
-- If **simpler dedicated SAP** → we use OP25/the fork for frame + PDU decode, skip the SNDCP/IP layer, and pull NMEA straight out of the SAP data unit ourselves.
-- The standard's wording ("dedicated SAP, direct data") **hints at the simpler path**, but don't guess — the rig shows it in one session.
+- **TIA's own spec announcement:** Tier 1 location *"utilizes a **dedicated Service Access Point** over the Common Air Interface,"* a *"simple **SU-to-SU** interface for the **Direct Data and Repeated Data** configurations,"* with position *"formatted as described in **NMEA 0183**."* A *dedicated* SAP — not the general IP/packet-data SAP.
+- **The fork's own code confirms the contrast:** it only emits an IP datagram when **`sap == 0`** (SAP 0 = the IP/SNDCP packet-data path that Motorola TMS/LRRP rides; SNDCP SN-DATA header `51 00` → IPv4). Tier 1's **dedicated SAP ≠ 0**, so a Tier 1 location PDU falls through the fork as an "other/unhandled sap" header — i.e., it is **not** on the IP path.
+- **So the architecture is set:** slice → sync → NID → PDU header (read **SAP** = the location SAP, plus format / blocks-to-follow / pad / data-header-offset) → de-trellis + deinterleave the data blocks → strip the 4-byte packet CRC + pad → **the payload IS the NMEA, directly** (no IP/UDP to unwrap). We reuse the fork's symbol/sync/trellis/deinterleave/CRC machinery and **skip its SNDCP/IP layer entirely** — simpler than their path.
+- **The sentences are named by the standard** (PTIG Capabilities Guide, "Tier 1 Unit Location – NMEA 0183 Sentences"): **GGA** (Global Positioning System Fix Data — the sentence BAJB is referenced against), plus GLL, GSA, GSV, RMC, VTG. The primary fix sentence is **GGA**, which is exactly the **`$G?GGA`** Jim's BK RNDIS feed already emits — the over-air sentence and the answer-key sentence are the same thing.
 
-**First experiment (the whole thing turns on this):**
-> **DISC AUD → an OP25-based decoder → watch what PDUs / datagrams actually fall out → diff the bytes against the known RNDIS NMEA.** The transport structure reveals itself, and that decides the architecture of everything we build.
+**What the bench still confirms** (small, not architectural): the exact **dedicated-SAP number**, whether BK wraps any vendor framing around the NMEA, and confirmed-vs-unconfirmed delivery. The known-plaintext rig reads these off in one session — but the decoder's shape is now fixed.
+
+**First experiment (unchanged, now confirmatory rather than exploratory):**
+> **DISC AUD → slice / sync / NID → read the PDU header's SAP → de-trellis + deinterleave the data blocks → the NMEA should be sitting right there → diff against the known RNDIS `$G?GGA`.**
 
 ---
 
@@ -121,7 +124,8 @@ Because we start from **discriminator audio**, the chain is: **DISC AUD → soun
 | No vocoder needed (data not voice → no DVSI patent) | **ESTABLISHED** |
 | Decode stack + parts donors (OP25, russinnes fork) | **MAPPED** |
 | Donor code pulled/studied in-repo | **NOT YET** — clone OP25 + the fork, map reusable parts |
-| Transport encapsulation (SNDCP/IP vs simple SAP) | **UNKNOWN** — the rig resolves it |
+| Tier 1 NMEA sentences | **GGA** primary (BAJB-referenced), + GLL/GSA/GSV/RMC/VTG allowed (PTIG guide) — GGA matches Jim's RNDIS `$G?GGA` |
+| Transport encapsulation (SNDCP/IP vs simple SAP) | **RESOLVED (authoritative): dedicated SAP, direct NMEA, NOT IP** — bench confirms the exact SAP# + any BK framing |
 | End-to-end OTA decode of a real GPS fix | **NOT YET** — the goal |
 
 ## Next steps
@@ -180,6 +184,9 @@ Jim's first gate: **feed the sound card something a decoder says "yep, that's re
 - wiki.wireshark.org/P25 — Wireshark P25 page (no native dissector, no sample pcap; P25-in-UDP port 23456)
 - sigidwiki.com/wiki/P25 — sample recordings incl. `APCO25_P1_Data_C4FM_Audio.mp3` (Phase-1 data channel)
 - RadioReference "Analyze P25 Packet Data (LRRP/Location)" DSD+ thread — LRRP structure + hrh17's Tait Phase-1 NMEA GPS WAVs
+- TIA announcement — "TIA Issues New P25 Tier 1 Location Services Specification" (standards.tiaonline.org): **dedicated SAP**, SU-to-SU Direct/Repeated Data, NMEA 0183, portable-host field use (not FNE)
+- P25 PTIG Capabilities Guide (project25.org) — "Tier 1 Unit Location – NMEA 0183 Sentences": GGA (BAJB) + GLL/GSA/GSV/RMC/VTG; Tier 2 = LRRP over IP
+- TIA-102.BAJB-B (current Tier 1 Location Services spec) + TSB-102.BAJA (Location Services Overview) — the normative docs (paywalled; the SAP number/data-unit layout would come from here or the bench)
 - OP25 decoder + P25-in-UDP encapsulation wikis (osmocom)
 - "A Look at Project 25 (P25) Digital Radio" — CAI/framing (GNU Radio wiki, PDF)
 - dsd-fme / OP25 / SDRTrunk comparison (pistack.xyz guide)
