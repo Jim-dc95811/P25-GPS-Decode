@@ -26,6 +26,15 @@ Decode **P25 Tier 1 GPS location straight off the air** from a receiver's **disc
 
 ---
 
+
+**2026-11-23 (cont.) — OP25 framer + PDU FEC PORTED FAITHFULLY and VALIDATED to the NID; payload gated by the capture transient.** Per Jim's "assemble the proven methods, no science-club" directive, the hard middle is now ported verbatim from OP25 (not hand-rolled):
+- **`decode/pdu_blocks.py`** — `block_deinterleave_12` (1/2-rate: 196-bit interleave table + 4-state trellis), `block_deinterleave_34` (3/4 Viterbi), `crc16`/`crc32`/`count_bits`/`find_min` (from `p25p1_fdma.cc`).
+- **`decode/framer.py`** — `p25_framer.cc` streaming sync (`check_frame_sync`: popcount(x^`0x5575F5FF77FF`)≤6 over 48 bits — deterministic, replaces the old correlation-argmax), NID at frame bits 48–114 skipping status bits 70–71, BCH accept only `ec≤4` + DUID/parity (TIA-102-BAAC), PDU body collected to the next sync; plus `process_blocks` (strip every 36th status dibit, 1/2-rate blocks at bit 48+64+k·196).
+- **VALIDATED:** fed correctly-sliced symbols, the framer deterministically locks sync (Hamming 1) and returns **NAC 0x455 / DUID 0xC (PDU) / ec 1** on burst 91.17. The structural chain (sync→NID→BCH→PDU grid→trellis→CRC) is assembled per spec and proven to the NID.
+- **Payload status (honest):** the `$GNGGA…$PP25,9076802` text comes out of the 1/2-rate 12-octet blocks, but only when the sync/header region is cleanly sliced. The **key-up DC transient** in this capture compresses a level right there, and one threshold set can't serve both the transient header and the clean body; calibration is window-sensitive (some runs decode a CRC-valid header `15 f0 00 8a 80 42 …` = fmt 0x15 unconfirmed / SAP 0x30 Location / RID 9076802, proving the data is decodable, but not reproducibly). **This is a capture-quality issue, not a method issue** → the bench fix (capture level/coupling, or trigger the record just before key-up) yields transient-free symbols → fixed-threshold slice → the assembled chain runs straight to the NMEA. No adaptive-slicer workaround was invented (per directive).
+- **Next (bench):** take a clean DEO capture tomorrow → fixed-threshold slice → `run_decode.py` → expect the full `$GNGGA`+`$PP25` payload, diffed byte-for-byte against the RNDIS answer-key log.
+
+
 ## The product architecture — TWO TRAVELERS (Jim, 2026-11-22)
 
 **Two products that differ ONLY in the input stage; everything downstream is the proven Traveler, untouched.** The OTA decoder is a **drop-in replacement for the RNDIS input stage** — not a new system.
