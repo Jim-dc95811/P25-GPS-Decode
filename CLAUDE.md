@@ -31,7 +31,7 @@ Decode **P25 Tier 1 GPS location straight off the air** from a receiver's **disc
 
 ## Landmines / things not to re-derive
 
-- **The discriminator tap** — don't re-derive it. PREFERRED = **Kenwood NX-700 DB-25 pin 19 (DEO), radio set WIDE** (external, no disassembly); alternate = **BK DPH-CMD J2 pin CZ8**. Both logged in `docs/DECODE_PLAN.md` with the NX-700 electrical spec. It's the raw FM detector output either way; we decode P25 in software, so the RX radio's own mode (NXDN/analog) is irrelevant as long as it's a Wide FM channel on the P25 frequency with squelch open.
+- **The discriminator tap** — don't re-derive it. PREFERRED = **Kenwood NX-700 DB-25 pin 19 (DEO), radio set WIDE** (external, no disassembly); alternate = **BK DPH-CMD J2 pin CZ8**. Both logged in `docs/DECODE_PLAN.md` with the NX-700 electrical spec + confirmed signal path. NUANCE (confirmed from the B51-8822 block diagram): the DPH CZ8 is a pure analog discriminator pin, but the NX-700 **DEO is a DSP-ROUTED detected-signal output** (detector IC202 → ADC/DSP IC510/IC502 → DAC IC712 → pin 19), output flat, 48 kHz internal sampling — almost certainly clean for C4FM but **confirm with the first eye diagram**. We decode P25 in software, so the RX radio's own mode (NXDN/analog) is irrelevant as long as it's a Wide FM channel on the P25 frequency, squelch open.
 - **Discriminator audio is already demodulated** — do NOT reach for an SDR or re-demod. Sound card → slice 4 levels → dibits.
 - **We want DATA, not voice** — never pull in a vocoder (mbelib/IMBE). It only decodes voice and carries the DVSI patent. Discard voice frames.
 - **Tier 1 ≠ LRRP.** Tier 1 (TIA-102.BAJB, NMEA, standardized) is the target. Motorola LRRP is a different, proprietary thing — don't build toward it.
