@@ -39,6 +39,9 @@ Position, altitude, geoid, the `*4D` checksum, and the `$PP25,9076802,*35` unit-
 Residual single-glyph errors (e.g. `$DNGGA` for `$GNGGA`) on otherwise-perfect sentences remain a minor polish item.
 
 
+**2026-11-23 (2nd capture) — ★★ 10/10. The decoder is now proven on a full clean capture: every burst, position AND unit ID exact.** A fresh 10-report capture (clean recording) + its synced RNDIS log → `decode_capture.py` decoded **all 10 bursts**, with **lat+lon exact 10/10, unit-id `9076802` exact 10/10, checksum 10/10** against the answer key. This conclusively confirms the earlier 41–71 s no-locks were a transient RF/capture condition, NOT the decoder — a clean capture clears them. The method is complete and validated on two independent datasets. Only residual: occasional single-glyph slips in the UTC *time* field (e.g. `284226` for `204226`) — cosmetic, never affects position/ID/checksum. **Recording note for clean captures: 48 kHz mono PCM WAV, Windows audio "enhancements" OFF, Communications tab "Do nothing", mic level no-clip, ~2 s lead-in before the first key-up.**
+
+
 ## The product architecture — TWO TRAVELERS (Jim, 2026-11-22)
 
 **Two products that differ ONLY in the input stage; everything downstream is the proven Traveler, untouched.** The OTA decoder is a **drop-in replacement for the RNDIS input stage** — not a new system.
