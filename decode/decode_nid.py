@@ -34,7 +34,8 @@ def decode_burst(x, fr0, s):
     en=np.sqrt(np.convolve(sym**2,np.ones(24),'valid'))+1e-9
     cc=np.correlate(sym,TN,'valid')/en; bi=int(np.argmax(np.abs(cc))); best=cc[bi]
     use=sym*(1 if best>0 else -1)
-    lv=kmeans4(use); thr=[(lv[i]+lv[i+1])/2 for i in range(3)]
+    lv=kmeans4(use[max(0,bi-10):bi+130])   # LOCAL kmeans: adapt to the key-up transient levels near the header
+    thr=[(lv[i]+lv[i+1])/2 for i in range(3)]
     db=np.array([LVL2DIBIT[bb] for bb in np.digitize(use,thr)])
     nidslots=list(db[bi+24:bi+57]); del nidslots[35-24]
     acc=0
