@@ -33,9 +33,9 @@ The decode chain (symbol recovery → P25 framing → Tier 1 data PDUs → NMEA)
 
 ## The Universal Traveler
 
-**⬇️ [Universal Traveler (PC) v1.0](Universal_Traveler_PC_v1.0.zip)** — the live map, fed by GPS decoded off the air, **no cooperating base in the chain.**
+**⬇️ [Universal Traveler (PC) v1.1](Universal_Traveler_PC_v1.1.zip)** — the Traveler, fed by GPS decoded off the air, **no cooperating base in the chain.**
 
-The decoder emits the same `$GNGGA`+`$PP25` NMEA on the same port (`:10110`) a BK base's bridge used, so the proven [Lookout](https://github.com/Jim-dc95811/The-Lookout) map server reads it **unchanged** — the OTA decoder is a byte-for-byte drop-in for the base feed. Extract, double-click `Start the Universal Traveler.bat`: it listens to the radio, serves the feed, and opens the live map at `http://localhost:8080` with every unit that keys up plotted and moving. Any P25 fleet, any receiver with detector audio. (Decode on the box itself is the next phase; this runs it on a PC.)
+It's the [Traveler](https://github.com/Jim-dc95811/The-Lookout)'s own software — its locked split-screen map — with the input stage swapped. The decoder emits the same `$GNGGA`+`$PP25` NMEA on the same port (`:10110`) a BK base's bridge used, so the Traveler map server reads it **unchanged** — the OTA decoder is a byte-for-byte drop-in for the base feed. Extract, double-click `Start the Universal Traveler.bat`: it listens to the radio, serves the feed, and opens the live map at `http://localhost:8080` with every unit that keys up plotted and moving. Any P25 fleet, any receiver with detector audio. (Decode on the box itself is the next phase; this runs it on a PC.)
 
 ## Download the tools
 

@@ -11,8 +11,8 @@ start "Traveler map server" cmd /k %PYEXE% "System Files\units_kml.py"
 timeout /t 3 >nul
 start "" http://localhost:8080
 echo.
-echo Two windows opened: the decoder (listening) and the map server.
-echo The browser should open the live map at http://localhost:8080
+echo Two windows opened: the decoder (listening) and the Traveler map server.
+echo The browser should open the live split-screen map at http://localhost:8080
 echo Close those two windows to stop everything.
 echo.
 pause
