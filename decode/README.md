@@ -1,37 +1,41 @@
-# decode/ — the over-the-air P25 symbol + NID decoder (first layers)
+# decode/ — over-the-air P25 Tier-1 GPS decoder (PROVEN)
 
-Reads **discriminator audio** (a WAV from the sound-card tap, no SDR) and peels the
-P25 Tier-1 frame down to the **NID** (NAC + DUID). This is the front half of the
-OTA mission; the PDU payload -> NMEA path is the next build.
+Reads **discriminator audio** (a WAV from an FM-detector tap, no SDR) and
+decodes P25 Tier-1 location to **NMEA**, matching a BK base's RNDIS output
+character-for-character. See `../docs/P25_OTA_GPS_Decoder_Engineering_Reference.pdf`
+for the full engineering writeup.
 
-## Files
-- **`fsk4_demod.py`** — the keeper. A faithful port of **OP25's `fsk4_demod_ff`
-  `tracking_loop_mmse`**: MMSE fractional-interpolation symbol-clock recovery +
-  symbol-spread AGC + fine-frequency integrator. Float discriminator samples in →
-  soft 4-level symbols out (−3,−1,+1,+3). No pre-resampling needed; locks at 44.1 kHz
-  native for 4800 baud. (Search-first win: this solved the ~15 %-symbol-error problem
-  the hand-rolled fixed-step slicer had — the loop tracks clock + level + DC drift.)
-- **`fsk4_taps.npy`** — OP25's machine-generated 129×8 MMSE interpolator table.
-- **`bch_nid.py`** — OP25's BCH(63,16) tables + decoder + `nid_codeword` (NAC/DUID).
-- **`decode_nid.py`** — the glue: WAV → DC-block → scale → `fsk4_demod` → soft-NCC
-  frame-sync hunt → adaptive 4-level kmeans slice → NID → BCH.
-  `python3 decode_nid.py <capture.wav> <burst_start_s> [...]`
+## Run
+```
+python3 decode_capture.py <discriminator_capture.wav>
+```
+Mono PCM WAV, 48 kHz preferred (integer 10 samples/symbol). Radio WIDE, squelch
+open, on the fleet's P25 channel. Deps: numpy, scipy.
 
-## Proven 2026-11-23 (Jim's live-radio DEO capture, 10 GPS periodic reports)
-- The MMSE loop locks to a **clean, symmetric 4-level eye** over the burst body
-  (kmeans levels ≈ −3.4, −1.0, +1.0, +3.4 every burst).
-- On the cleanly-synced bursts the recovered **NID BCH-decodes to NAC `0x455`** —
-  **Jim's actual, independently-confirmed NAC.** First genuine OTA P25 decode here.
+## Pipeline (entry point: decode_capture.py)
+band-ratio burst detect → per-burst fresh demod → robust acquisition → NMEA.
 
-## Known, open (the real gates — next build)
-1. **Key-up DC transient** compresses the `−3` level in the sync / early-NID region
-   of some bursts (a capture-side artifact: AC-coupling cap recharge at key-up).
-   A symmetric high-pass can't remove it without eating symbol energy. Address at
-   the bench (level/coupling, or capture slightly before key-up) **and** fold a
-   proper DC-block into the front end.
-2. **Robust framing:** `decode_nid.py`'s sync hunt + fixed status-symbol index is
-   fragile — off-position / transient-hit bursts false-lock on idle runs. Port
-   **OP25 `p25_framer.cc`** (tracks the status-symbol phase from the sync position).
-3. **Payload → NMEA:** the GPS lives in the PDU payload (deinterleave + trellis 1/2
-   + CRC), not the NID. That's the `russinnes/P25-sndcp-packet-decoder` fork's core.
-   The payload rides the clean burst body, so the transient doesn't block it.
+| File | Role |
+|---|---|
+| `frontend.py` | OP25 RMS-AGC + **c4fm RX de-emphasis filter** — the piece that unlocked the decode (don't improvise a front end) |
+| `fsk4_demod.py` | OP25 `tracking_loop_mmse` symbol recovery (clean eye) |
+| `framer.py` | OP25 streaming sync (popcount≤6 vs `0x5575F5FF77FF`) + NID (BCH ec≤4, DUID/parity) + `process_blocks` |
+| `bch_nid.py` | OP25 BCH(63,16) + `nid_codeword` |
+| `pdu_blocks.py` | 1/2 greedy + **`viterbi_deinterleave_12`** (recovers 12/12 blocks vs greedy 4/12) + 3/4 Viterbi + CRC-16/32 |
+| `decode_capture.py` | band-ratio detector + robust acquisition (strict framer → force-lock validated by the payload) |
+| `fsk4_taps.npy` | OP25 129×8 MMSE interpolator table |
+| `decode_nid.py`, `run_decode.py` | earlier single-burst harnesses (superseded by decode_capture.py) |
+
+## Proven (2026-11-23, Jim's live DEO capture)
+Full `$G?GGA` + `$PP25,9076802` sentences == the RNDIS answer key. 6/11 bursts
+decode fully; the remaining 5 are signal-limited (a degraded ~30 s mid-capture
+segment), proven not algorithm-limited.
+
+## Landmines (full list in the engineering PDF §12)
+- The "key-up transient" was a hand-rolled moving-average pre-filter, NOT the
+  capture. Use OP25's c4fm RX filter + fixed-threshold slicing.
+- Greedy 1/2 trellis hard-fails on ties → use Viterbi.
+- Energy burst-detection fails on open-squelch audio → band-ratio (<3 kHz).
+- One continuous demod drifts through inter-burst silence → fresh demod per burst.
+- Relaxing the global sync threshold truncates the PDU body → strict + targeted
+  force-lock validated by the payload.
