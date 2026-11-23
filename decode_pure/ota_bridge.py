@@ -18,12 +18,16 @@ Env: LOOKOUT_AUDIO_DEV (default plughw:0,0), OTA_PORT (default 10110),
      OTA_RATE (default 48000).  Read-only: a radio is never transmitted to.
 """
 import sys, os, time, socket, threading, subprocess, array, wave
+try:
+    import queue
+except ImportError:
+    import Queue as queue
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from live_pure import LivePureDecoder
+from squelch import SquelchDecoder
 
-VERSION = "1.1"
+VERSION = "1.2"
 RATE = int(os.environ.get("OTA_RATE", "48000"))   # card native (direct USB, not behind a hub)
 DEV = os.environ.get("LOOKOUT_AUDIO_DEV", "plughw:0,0")
 CH = int(os.environ.get("OTA_CH", "2"))        # SB Play! 3 capture is stereo-only; fold to mono
@@ -96,12 +100,36 @@ def _make_on_report(server, lf):
     return on_report, state
 
 
+def _drain(proc, q, frame, stop):
+    """Reader thread: continuously drain arecord's pipe into blocks of mono
+    floats on the queue. Kept separate from the decoder so a per-packet decode
+    (which blocks ~0.1-0.5 s) can never stall the pipe -> no arecord overrun."""
+    inv = 1.0 / (32768.0 * CH)
+    carry = b""
+    while not stop.is_set():
+        data = proc.stdout.read(8192)
+        if not data:
+            break
+        data = carry + data
+        usable = len(data) - (len(data) % frame)       # whole frames only
+        carry = data[usable:]
+        a = array.array("h"); a.frombytes(data[:usable])
+        if CH == 1:
+            blk = [v / 32768.0 for v in a]
+        else:                                           # fold interleaved ch -> mono
+            blk = [sum(a[i:i + CH]) * inv for i in range(0, len(a), CH)]
+        if blk:
+            q.put(blk)
+    q.put(None)   # sentinel: arecord ended
+
+
 def run_live(server):
     lf, path = _logger()
     on_report, state = _make_on_report(server, lf)
-    dec = LivePureDecoder(RATE, on_report, lambda m: print("  .. %s" % m, flush=True))
+    dec = SquelchDecoder(RATE, on_report, lambda m: print("  .. %s" % m, flush=True))
     cmd = ["arecord", "-D", DEV, "-f", "S16_LE", "-c", str(CH), "-r", str(RATE), "-t", "raw", "-q"]
-    print("[ota] P25 OTA bridge v%s - capturing %s @ %d Hz, %d ch -> mono" % (VERSION, DEV, RATE, CH), flush=True)
+    print("[ota] P25 OTA bridge v%s - capturing %s @ %d Hz, %d ch -> mono (noise-quieting squelch)"
+          % (VERSION, DEV, RATE, CH), flush=True)
     print("[ota] log: %s" % path, flush=True)
     frame = CH * 2  # bytes per frame (S16 = 2 bytes/sample)
     while not server.stop.is_set():
@@ -111,23 +139,20 @@ def run_live(server):
             print("[ota] cannot start arecord (%s) - is alsa-utils installed? retrying" % e, flush=True)
             time.sleep(4); continue
         print("[ota] listening for GPS bursts ...", flush=True)
+        q = queue.Queue(maxsize=256)
+        rstop = threading.Event()
+        rt = threading.Thread(target=_drain, args=(p, q, frame, rstop), daemon=True)
+        rt.start()
         try:
-            while True:
-                data = p.stdout.read(8192)
-                if not data:
-                    break
-                usable = len(data) - (len(data) % frame)   # whole frames only
-                a = array.array("h"); a.frombytes(data[:usable])
-                if CH == 1:
-                    dec.feed([v / 32768.0 for v in a])
-                else:
-                    # fold interleaved channels to mono (average), robust to which
-                    # channel the mic lands on
-                    inv = 1.0 / (32768.0 * CH)
-                    dec.feed([sum(a[i:i + CH]) * inv for i in range(0, len(a), CH)])
+            while not server.stop.is_set():
+                blk = q.get()                           # blocks; reader keeps pipe drained
+                if blk is None:
+                    break                               # arecord ended
+                dec.feed(blk)                           # decode happens here, pipe still drains
         except Exception as e:
-            print("[ota] capture error: %s - restarting arecord" % e, flush=True)
+            print("[ota] decode error: %s - restarting arecord" % e, flush=True)
         finally:
+            rstop.set()
             try: p.kill()
             except Exception: pass
         time.sleep(2)   # card yanked / arecord died -> reopen
@@ -139,7 +164,7 @@ def run_replay(wav, server):
     x = [v / 32768.0 for v in (a[::nch] if nch > 1 else a)]
     lf, path = _logger()
     on_report, state = _make_on_report(server, lf)
-    dec = LivePureDecoder(fr, on_report, lambda m: None)
+    dec = SquelchDecoder(fr, on_report, lambda m: None)
     print("[ota] REPLAY %s (%d Hz, %.1fs)" % (os.path.basename(wav), fr, len(x) / fr), flush=True)
     if server: time.sleep(1.5)
     for s in range(0, len(x), 2048): dec.feed(x[s:s + 2048])
