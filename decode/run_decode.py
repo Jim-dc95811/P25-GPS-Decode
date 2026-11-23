@@ -1,5 +1,6 @@
 import sys, numpy as np, wave
 from fsk4_demod import fsk4_demod
+from frontend import front_end
 from framer import decode_frames, pdu_blocks
 from pdu_blocks import crc16
 LVL2DIBIT=[3,2,0,1]
@@ -17,7 +18,8 @@ def slice_fixed(sym, pol):
     return [LVL2DIBIT[b] for b in np.digitize(v, [-2.0, 0.0, 2.0])]
 def burst_syms(x,fr0,s,span):
     a=x[int((s)*fr0):int((s+span)*fr0)].copy()
-    a-=np.convolve(a,np.ones(201)/201,mode='same'); a=a/(np.std(a)+1e-9)*np.sqrt(5.0)
+    a=front_end(a,fr0)                              # OP25 rmsagc + c4fm RX filter
+    a=a/(np.std(a)+1e-9)*np.sqrt(5.0)
     return fsk4_demod(a,fr0,4800)
 if __name__=="__main__":
     wav=sys.argv[1]; starts=[float(z) for z in sys.argv[2:]] or [1.0]
