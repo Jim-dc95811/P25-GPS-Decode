@@ -14,9 +14,17 @@ The point is independence and reach:
 - **The whole P25 world, not one brand.** Tier 1 location is a common, regulated format across manufacturers.
 - **Data, not voice.** We decode the location data units and ignore voice entirely — so there's no vocoder and none of the patent baggage that comes with P25 voice decoding.
 
-## Status — proven over the air ✅
+## Status — proven LIVE over the air ✅
 
-Over-the-air decode is **demonstrated end to end.** Fed a recording of a radio's discriminator audio, the decoder recovers each GPS report as the exact `$GNGGA` position + `$PP25,<unit-id>` sentence the fleet transmits — validated **character-for-character against a cooperating base's own NMEA feed** (the answer key) on two independent captures:
+**2026-11-23, 16:17 — first live decode off a radio.** The live tool, listening to a radio's detector audio on a USB sound card, decoded a transmission the instant it keyed up — full position, valid checksum, correct unit ID — with no base radio, no SDR, no cooperating gateway:
+
+```
+[16:17:08]  $GNGGA,211707.00,3023.62940,N,08156.25880,W,1,12,0.68,29.6,M,-31.1,M,,*4A   $PP25,9076802,*35
+```
+
+![First live over-the-air P25 GPS decode](images/first_live_ota_decode_2026-11-23.png)
+
+Over-the-air decode is **demonstrated end to end,** live and from recordings. Fed a recording of a radio's discriminator audio, the decoder recovers each GPS report as the exact `$GNGGA` position + `$PP25,<unit-id>` sentence the fleet transmits — validated **character-for-character against a cooperating base's own NMEA feed** (the answer key) on two independent captures:
 
 - A clean 10-report capture decoded **10 of 10 bursts**, with **latitude, longitude, unit ID and checksum exact on every one**.
 - An earlier, partly-degraded capture decoded every adequately-received burst; the misses were a transient mid-recording RF condition, not a decoder limit (a clean capture clears them).
