@@ -39,6 +39,18 @@ Decode **P25 Tier 1 GPS location straight off the air** from a receiver's **disc
 
 ---
 
+## The product architecture — TWO TRAVELERS (Jim, 2026-11-22)
+
+**Two products that differ ONLY in the input stage; everything downstream is the proven Traveler, untouched.** The OTA decoder is a **drop-in replacement for the RNDIS input stage** — not a new system.
+
+1. **The BK Traveler — PROVEN (shipped).** Input = the BK base's **RNDIS** feed: a cooperating BK base/gateway de-frames the received P25 GPS and hands clean NMEA over USB-RNDIS; `bk_bridge` reads it → clean NMEA on `:10110` → `units_kml` → the map any browser opens.
+
+2. **The Universal Traveler — the OTA mission's product.** Input = **C4FM discriminator audio**, **locally decoded + parsed on the box** into the **same NMEA the RNDIS provided**. No cooperating base; any radio that exposes **flat discriminator/detector audio** (e.g. NX-700 DEO pin 19 — NOT filtered voice audio). Because it emits the identical `$GNGGA`+`$PP25` contract on the same feed, `units_kml`, the GPS plotting, the browser display are all **byte-for-byte the proven Traveler**. The only new part is the front-end module that turns discriminator audio into that NMEA. (Eventually runs on the MT3000 itself — phase two; 4800 baud DSP load is light, confirm on the box's ARM when we get there. First we prove the decode on a PC.)
+
+**This sharpens the whole mission's success criterion to one sentence:** the decoder's job is to **emit the same NMEA the RNDIS feed emits** — which the answer-key rig (`rig/rndis_nmea_logger.py`) captures directly. **Decoder NMEA == RNDIS NMEA (same position AND same individual ID) = the Universal Traveler's input mod is proven.** It's a byte diff against ground truth, not a fuzzy "is it working." Develop/prove the decoder standalone (PC, against the log), then slot it in as the input module; the proven box is never touched to find out if the air works.
+
+---
+
 ## Landmines / things not to re-derive
 
 - **The discriminator tap** — don't re-derive it. PREFERRED = **Kenwood NX-700 DB-25 pin 19 (DEO), radio set WIDE** (external, no disassembly); alternate = **BK DPH-CMD J2 pin CZ8**. Both logged in `docs/DECODE_PLAN.md` with the NX-700 electrical spec + confirmed signal path. NUANCE (confirmed from the B51-8822 block diagram): the DPH CZ8 is a pure analog discriminator pin, but the NX-700 **DEO is a DSP-ROUTED detected-signal output** (detector IC202 → ADC/DSP IC510/IC502 → DAC IC712 → pin 19), output flat, 48 kHz internal sampling — almost certainly clean for C4FM but **confirm with the first eye diagram**. We decode P25 in software, so the RX radio's own mode (NXDN/analog) is irrelevant as long as it's a Wide FM channel on the P25 frequency, squelch open.
