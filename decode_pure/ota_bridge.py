@@ -23,9 +23,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from live_pure import LivePureDecoder
 
-VERSION = "1.0"
+VERSION = "1.1"
 RATE = int(os.environ.get("OTA_RATE", "48000"))
 DEV = os.environ.get("LOOKOUT_AUDIO_DEV", "plughw:0,0")
+CH = int(os.environ.get("OTA_CH", "2"))        # SB Play! 3 capture is stereo-only; fold to mono
 PORT = int(os.environ.get("OTA_PORT", "10110"))
 LINK_EVERY_S = 5.0
 
@@ -99,9 +100,10 @@ def run_live(server):
     lf, path = _logger()
     on_report, state = _make_on_report(server, lf)
     dec = LivePureDecoder(RATE, on_report, lambda m: print("  .. %s" % m, flush=True))
-    cmd = ["arecord", "-D", DEV, "-f", "S16_LE", "-c", "1", "-r", str(RATE), "-t", "raw", "-q"]
-    print("[ota] P25 OTA bridge v%s - capturing %s @ %d Hz" % (VERSION, DEV, RATE), flush=True)
+    cmd = ["arecord", "-D", DEV, "-f", "S16_LE", "-c", str(CH), "-r", str(RATE), "-t", "raw", "-q"]
+    print("[ota] P25 OTA bridge v%s - capturing %s @ %d Hz, %d ch -> mono" % (VERSION, DEV, RATE, CH), flush=True)
     print("[ota] log: %s" % path, flush=True)
+    frame = CH * 2  # bytes per frame (S16 = 2 bytes/sample)
     while not server.stop.is_set():
         try:
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
@@ -114,8 +116,15 @@ def run_live(server):
                 data = p.stdout.read(8192)
                 if not data:
                     break
-                a = array.array("h"); a.frombytes(data if len(data) % 2 == 0 else data[:-1])
-                dec.feed([v / 32768.0 for v in a])
+                usable = len(data) - (len(data) % frame)   # whole frames only
+                a = array.array("h"); a.frombytes(data[:usable])
+                if CH == 1:
+                    dec.feed([v / 32768.0 for v in a])
+                else:
+                    # fold interleaved channels to mono (average), robust to which
+                    # channel the mic lands on
+                    inv = 1.0 / (32768.0 * CH)
+                    dec.feed([sum(a[i:i + CH]) * inv for i in range(0, len(a), CH)])
         except Exception as e:
             print("[ota] capture error: %s - restarting arecord" % e, flush=True)
         finally:
