@@ -27,7 +27,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from squelch import SquelchDecoder
 
-VERSION = "1.2"
+VERSION = "1.3"
 RATE = int(os.environ.get("OTA_RATE", "48000"))   # card native (direct USB, not behind a hub)
 DEV = os.environ.get("LOOKOUT_AUDIO_DEV", "plughw:0,0")
 CH = int(os.environ.get("OTA_CH", "2"))        # SB Play! 3 capture is stereo-only; fold to mono
@@ -100,26 +100,21 @@ def _make_on_report(server, lf):
     return on_report, state
 
 
-def _drain(proc, q, frame, stop):
-    """Reader thread: continuously drain arecord's pipe into blocks of mono
-    floats on the queue. Kept separate from the decoder so a per-packet decode
-    (which blocks ~0.1-0.5 s) can never stall the pipe -> no arecord overrun."""
-    inv = 1.0 / (32768.0 * CH)
-    carry = b""
+def _drain(proc, q, stop):
+    """Reader thread: drain arecord's pipe as RAW BYTES only -- no conversion.
+    read() releases the GIL and the put is trivial, so even while a pure-Python
+    decode hogs the GIL for seconds in the consumer (the ARM is ~20x slower than
+    a PC), this thread keeps the pipe empty and arecord never overruns. The
+    byte->float fold is deferred to the consumer, which has idle time between
+    the ~10 s-apart bursts to catch up on any backlog."""
     while not stop.is_set():
         data = proc.stdout.read(8192)
         if not data:
             break
-        data = carry + data
-        usable = len(data) - (len(data) % frame)       # whole frames only
-        carry = data[usable:]
-        a = array.array("h"); a.frombytes(data[:usable])
-        if CH == 1:
-            blk = [v / 32768.0 for v in a]
-        else:                                           # fold interleaved ch -> mono
-            blk = [sum(a[i:i + CH]) * inv for i in range(0, len(a), CH)]
-        if blk:
-            q.put(blk)
+        try:
+            q.put(data, timeout=2)
+        except queue.Full:
+            pass   # consumer wedged badly; drop a chunk (pipe stays drained)
     q.put(None)   # sentinel: arecord ended
 
 
@@ -139,16 +134,27 @@ def run_live(server):
             print("[ota] cannot start arecord (%s) - is alsa-utils installed? retrying" % e, flush=True)
             time.sleep(4); continue
         print("[ota] listening for GPS bursts ...", flush=True)
-        q = queue.Queue(maxsize=256)
+        q = queue.Queue(maxsize=1024)                   # ~40s of raw audio backlog
         rstop = threading.Event()
-        rt = threading.Thread(target=_drain, args=(p, q, frame, rstop), daemon=True)
+        rt = threading.Thread(target=_drain, args=(p, q, rstop), daemon=True)
         rt.start()
+        inv = 1.0 / (32768.0 * CH)
+        carry = b""
         try:
             while not server.stop.is_set():
-                blk = q.get()                           # blocks; reader keeps pipe drained
-                if blk is None:
+                data = q.get()                          # raw bytes; reader keeps pipe drained
+                if data is None:
                     break                               # arecord ended
-                dec.feed(blk)                           # decode happens here, pipe still drains
+                data = carry + data
+                usable = len(data) - (len(data) % frame)   # whole frames only
+                carry = data[usable:]
+                a = array.array("h"); a.frombytes(data[:usable])
+                if CH == 1:
+                    blk = [v / 32768.0 for v in a]
+                else:                                   # fold interleaved ch -> mono
+                    blk = [sum(a[i:i + CH]) * inv for i in range(0, len(a), CH)]
+                if blk:
+                    dec.feed(blk)                       # decode here; pipe still drains
         except Exception as e:
             print("[ota] decode error: %s - restarting arecord" % e, flush=True)
         finally:
