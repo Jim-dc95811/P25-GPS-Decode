@@ -23,13 +23,17 @@ Over-the-air decode is **demonstrated end to end.** Fed a recording of a radio's
 
 The decode chain (symbol recovery → P25 framing → Tier 1 data PDUs → NMEA) is ported from the open OP25 project, with a Viterbi decode of the 1/2-rate data blocks added to recover bursts OP25's greedy decoder drops. Full honest detail — what's proven, how it was validated, the remaining cosmetic residual (occasional single-glyph slips in the UTC *time* field only, never position/ID/checksum) — is in [`CLAUDE.md`](CLAUDE.md) and [`docs/DECODE_PLAN.md`](docs/DECODE_PLAN.md).
 
-## Download the tool
+## Download the tools
 
-**⬇️ [P25 OTA GPS Decoder v1.0](P25_OTA_GPS_Decoder_v1.0.zip)** — a Windows tool that turns a `.wav` recording of discriminator audio into NMEA.
+Two Windows tools, same proven decode core — one reads a recording, one listens live.
 
-Extract the zip, then **drag a recording onto `Decode P25 GPS from a recording.bat`** (or double-click it and paste the file's path). It finds every GPS report in the recording, prints each as NMEA, and writes a timestamped log in the same form as the reference feed, so the two diff line for line. It installs its two Python libraries (numpy, scipy) on first run; the manual beside the `.bat` covers recording settings and what the output means. Read-only throughout — a radio is never transmitted to or altered.
+**⬇️ [P25 OTA GPS Live Decoder v1.0](P25_OTA_GPS_Live_Decoder_v1.0.zip)** — listens to discriminator audio on a USB sound card and decodes each GPS report **the moment it keys up**, printing it and logging it live. This is the field front end (the live feed, no recordings). Extract, double-click `Listen for P25 GPS (live).bat`, pick the sound-card input, leave it listening. (Drag a `.wav` onto the `.bat` to self-check the decode path before wiring the radio.) Installs numpy, scipy and sounddevice on first run; the manual beside the `.bat` covers the wiring and Windows sound settings.
 
-It is the over-the-air counterpart to the reference logger ([`rig/rndis_nmea_logger.py`](rig/rndis_nmea_logger.py)): that reads finished NMEA from a cooperating base; this decodes the same NMEA from the raw air. The decode source lives in [`decode/`](decode/); `capture/` holds the sound-card capture settings for the discriminator input.
+**⬇️ [P25 OTA GPS Decoder v1.0](P25_OTA_GPS_Decoder_v1.0.zip)** — turns a `.wav` recording of discriminator audio into NMEA. Extract, then **drag a recording onto `Decode P25 GPS from a recording.bat`**. Good for working from saved captures.
+
+Both find every GPS report, print each as `$GNGGA` + `$PP25,<unit-id>`, and write a timestamped log in the same form as the reference feed, so the two diff line for line. Read-only throughout — a radio is never transmitted to or altered.
+
+They are the over-the-air counterpart to the reference logger ([`rig/rndis_nmea_logger.py`](rig/rndis_nmea_logger.py)): that reads finished NMEA from a cooperating base; these decode the same NMEA from the raw air. The decode source lives in [`decode/`](decode/) (the streaming engine is [`decode/live_core.py`](decode/live_core.py)); `capture/` holds the sound-card capture settings for the discriminator input.
 
 ## License
 
