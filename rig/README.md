@@ -33,12 +33,18 @@ base's own USB wrapper — **NOT** what goes over the air):
 - **Idle/ack frame:** `80 04 19 10 10 07 01 52 53 00 03 13 81` (the `52 53` = "RS"
   ack), sent continuously. The logger's NMEA regex ignores these.
 - **Data frame:** `80 0d 02 <id-field> <NMEA payload> <1-byte cksum> 81`.
-  The `<id-field>` distinguishes report type:
-  - **PTT-derived:** `00 00 01` → `$PP25,1` (trailing `01` = the console/keyed ID).
-  - **Periodic:** `8a 82 00 42` → `$PP25,9076802` (full radio ID; `9076802 = 0x8A8042`).
+  The `<id-field>` is the **transmitting radio's individual ID** (it tracks the
+  `$PP25,<id>` value). In this test two *different radios* reported:
+  - radio **ID 1**: header `00 00 01` → `$PP25,1`
+  - radio **ID 9076802**: header `8a 82 00 42` → `$PP25,9076802` (`9076802 = 0x8A8042`)
+
+  (The PTT vs periodic trigger is **independent** of this — it's only how each radio
+  was keyed. The ID field is the unit's individual ID, not a report-type tag.
+  Corrected per Jim 2026-11-22 — the first draft wrongly read it as a PTT/periodic tag.)
 
 **Mission implication:** the `80 … 81` wrapper is base-local USB transport and
 will NOT appear in the over-the-air decode. OTA (TIA-102.BAJB Tier 1) carries the
 `$GNGGA` NMEA inside a P25 CAI data unit. So the **answer key is the NMEA payload
-(the position)** — identical whichever pipe it arrives on. The PTT-vs-periodic ID
-contrast (`1` vs `9076802`) is a bonus cross-check if it survives to the air.
+(the position)** — identical whichever pipe it arrives on. And because each radio's
+**individual ID** is in the payload too (`1`, `9076802`), the decoded burst's ID
+must match a known unit — a second cross-check on top of position.
