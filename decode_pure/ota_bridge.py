@@ -24,9 +24,9 @@ sys.path.insert(0, HERE)
 from live_pure import LivePureDecoder
 
 VERSION = "1.1"
-RATE = int(os.environ.get("OTA_RATE", "48000"))
+RATE = int(os.environ.get("OTA_RATE", "24000"))   # plughw resamples from the card's native 48k (the path that works)
 DEV = os.environ.get("LOOKOUT_AUDIO_DEV", "plughw:0,0")
-CH = int(os.environ.get("OTA_CH", "2"))        # SB Play! 3 capture is stereo-only; fold to mono
+CH = int(os.environ.get("OTA_CH", "1"))        # plughw downmixes the stereo-only card to mono
 PORT = int(os.environ.get("OTA_PORT", "10110"))
 LINK_EVERY_S = 5.0
 
