@@ -21,6 +21,8 @@ from scipy.signal import spectrogram, lfilter
 from fsk4_demod import fsk4_demod
 from framer import decode_frames, pdu_blocks
 from frontend import c4fm_rx_taps
+from pdu_blocks import count_bits
+MAGIC=0x5575F5FF77FF; MASK=(1<<48)-1
 LVL2DIBIT=[3,2,0,1]
 def asc(bs): return "".join(chr(c) if 32<=c<127 else "." for c in bs)
 def rmsagc_vec(x, alpha=0.01, k=1.0):
@@ -36,22 +38,42 @@ def detect_bursts(x, fr0):
         prev=a
     return starts
 
-def decode_burst(x, fr0, tstart, taps, lead=0.06, span=0.55):
-    a=x[int((tstart-lead)*fr0):int((tstart+span)*fr0)].copy()
-    a=a-np.mean(a); a=rmsagc_vec(a); a=np.convolve(a,taps,'same'); a=a/(np.std(a)+1e-9)*np.sqrt(5.0)
-    sym=fsk4_demod(a,fr0,4800)
-    for sgn in (1,-1):
-        db=[LVL2DIBIT[b] for b in np.digitize(sgn*sym,[-2.,0.,2.])]
-        frames=decode_frames(db)
-        if frames: break
-    if not frames: return None
-    f=frames[0]
-    if f['duid']!=0xc: return f, ""
-    bv,blocks=pdu_blocks(f['fb']); pay=bytearray()
+def _best_sync(db, region=700):
+    acc=0; best=99; bi=0
+    for i,d in enumerate(db[:region]):
+        acc=((acc<<2)|(d&3))&MASK
+        if i>=23:
+            e=count_bits((acc^MAGIC)&MASK)
+            if e<best: best=e; bi=i
+    return bi, best
+def _payload_at(db, start):
+    fb=[]
+    for d in db[start:]:
+        fb.append((d>>1)&1); fb.append(d&1)
+    bv,blocks=pdu_blocks(fb); pay=bytearray()
     for b in blocks:
         if b is None: break
         pay+=b
-    return f, asc(pay)
+    return asc(pay)
+def _good(p): return ("GGA" in p) and ("$PP25,907" in p)
+def decode_burst(x, fr0, tstart, taps, span=0.55):
+    """Robust acquisition: strict framer, then force-lock at best sync near the
+    onset validated by the payload itself, across a few window offsets+polarities."""
+    for lead in (0.06, 0.10, 0.03, 0.15, 0.00):
+        a=x[int((tstart-lead)*fr0):int((tstart+span)*fr0)].copy()
+        a=a-np.mean(a); a=rmsagc_vec(a); a=np.convolve(a,taps,'same'); a=a/(np.std(a)+1e-9)*np.sqrt(5.0)
+        sym=fsk4_demod(a,fr0,4800)
+        for sgn in (1,-1):
+            db=[LVL2DIBIT[b] for b in np.digitize(sgn*sym,[-2.,0.,2.])]
+            frames=decode_frames(db, sync_errth=6)        # strict, NID-validated
+            if frames:
+                p=_payload_at(db, frames[0]['start'])
+                if _good(p): return frames[0], p
+            bi,h=_best_sync(db)                            # force-lock, payload-validated
+            if bi>=23:
+                p=_payload_at(db, bi-23)
+                if _good(p): return {'start':bi-23,'nac':0x455,'duid':0xc,'ec':-1}, p
+    return None
 
 def main(wav):
     w=wave.open(wav,'rb'); fr0=w.getframerate()

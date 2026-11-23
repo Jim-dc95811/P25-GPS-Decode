@@ -40,8 +40,8 @@ def _valid(nac, duid, ec, parity):
     if duid in (5,10) and parity: return True
     return False
 
-def decode_frames(dibits):
-    syncs = _sync_positions(dibits)
+def decode_frames(dibits, sync_errth=6):
+    syncs = _sync_positions(dibits, sync_errth)
     frames = []
     for si, p in enumerate(syncs):
         start = p - 23                      # first sync symbol
