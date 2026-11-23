@@ -8,7 +8,7 @@ bit 48+64+k*196, exactly as OP25 does.
 Usage: frames = decode_frames(dibits)  # dibits = list of 0..3 symbol values
 """
 import bch_nid
-from pdu_blocks import block_deinterleave_12, block_deinterleave_34, crc16, crc32, count_bits
+from pdu_blocks import block_deinterleave_12, block_deinterleave_34, viterbi_deinterleave_12, crc16, crc32, count_bits
 
 MAGIC = 0x5575F5FF77FF
 MASK  = (1 << 48) - 1
@@ -70,5 +70,5 @@ def pdu_blocks(fb):
     nblk = max(1, nblk)
     blocks = []
     for k in range(nblk):
-        blocks.append(block_deinterleave_12(bv, 48 + 64 + k*196))
+        blocks.append(viterbi_deinterleave_12(bv, 48 + 64 + k*196))
     return bv, blocks

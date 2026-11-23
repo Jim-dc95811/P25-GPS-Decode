@@ -113,3 +113,39 @@ def crc32(bits):  # bits = list of 0/1; P25 packet CRC-32
         if ((crc >> 32) ^ b) & 1:
             crc ^= g
     return (crc & 0xffffffff) ^ 0xffffffff
+
+# ---- proper VITERBI decode of the 1/2-rate P25 data block (optimal; replaces the
+#      greedy per-symbol block_deinterleave_12 when symbols carry residual errors).
+#      Same code/tables; 49 trellis steps, state transitions to the input dibit,
+#      output codeword = _NEXT[prev_state][input]. Recovers blocks the greedy
+#      decoder hard-fails on. ----
+def viterbi_deinterleave_12(bv, start):
+    if start + 195 >= len(bv):
+        return None
+    INF = 1 << 30; N = 49
+    cost = [[INF]*4 for _ in range(N+1)]
+    prev = [[-1]*4 for _ in range(N+1)]
+    inp  = [[-1]*4 for _ in range(N+1)]
+    cost[0][0] = 0
+    for t in range(N):
+        b = t*4
+        obs = (bv[start+_DEINT[b]] << 3) | (bv[start+_DEINT[b+1]] << 2) | \
+              (bv[start+_DEINT[b+2]] << 1) | bv[start+_DEINT[b+3]]
+        for ps in range(4):
+            if cost[t][ps] >= INF:
+                continue
+            base = cost[t][ps]
+            for d in range(4):
+                c = base + count_bits(obs ^ _NEXT[ps][d])
+                if c < cost[t+1][d]:
+                    cost[t+1][d] = c; prev[t+1][d] = ps; inp[t+1][d] = d
+    end = min(range(4), key=lambda s: cost[N][s])
+    dibits = [0]*N; s = end
+    for t in range(N, 0, -1):
+        dibits[t-1] = inp[t][s]; s = prev[t][s]
+        if s < 0:
+            return None
+    buf = bytearray(12)
+    for d in range(48):
+        buf[d >> 2] |= dibits[d] << (6 - ((d % 4) * 2))
+    return bytes(buf)
