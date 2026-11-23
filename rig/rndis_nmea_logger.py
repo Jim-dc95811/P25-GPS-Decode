@@ -15,6 +15,8 @@ lands here as a timestamped $GNGGA/$PP25 -- that pairing is the whole experiment
 import socket, re, time, os, sys
 from datetime import datetime
 
+VERSION = "1.0"
+
 # ---- config (verbatim from bk_bridge.py) ----
 RADIO_IP    = "10.250.46.6"
 RADIO_PORT  = 65535
@@ -63,7 +65,7 @@ def main():
     raw = open(rawpath, "ab")
 
     print("=" * 62)
-    print("  RNDIS NMEA Logger  -  P25-GPS-Decode answer-key recorder")
+    print(f"  RNDIS NMEA Logger v{VERSION}  -  P25-GPS-Decode answer-key recorder")
     print(f"  radio {RADIO_IP}:{RADIO_PORT}   (read-only)")
     print(f"  log : {logpath}")
     print(f"  raw : {rawpath}")
