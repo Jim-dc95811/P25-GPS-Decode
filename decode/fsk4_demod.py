@@ -23,9 +23,9 @@ K_SYMBOL_SPREAD=0.0100; K_SYMBOL_TIMING=0.025
 K_FINE_FREQUENCY=0.125; K_COARSE_FREQUENCY=0.00125
 SPREAD_MAX=2.4; SPREAD_MIN=1.6
 
-def fsk4_demod(sig, fs=44100.0, symrate=4800.0):
+def fsk4_demod(sig, fs=44100.0, symrate=4800.0, init_spread=2.0, init_fine=0.0, return_state=False):
     d_symbol_time=symrate/fs
-    d_symbol_clock=0.0; d_symbol_spread=2.0; fine=0.0; coarse=0.0
+    d_symbol_clock=0.0; d_symbol_spread=init_spread; fine=init_fine; coarse=init_fine
     hist=[0.0]*NTAPS; last=0; out=[]; symbol_error=0.0
     for x in sig:
         d_symbol_clock+=d_symbol_time
@@ -55,4 +55,6 @@ def fsk4_demod(sig, fs=44100.0, symrate=4800.0):
             d_symbol_spread=min(max(d_symbol_spread,SPREAD_MIN),SPREAD_MAX)
             coarse+=(fine-coarse)*K_COARSE_FREQUENCY
             fine  +=symbol_error*K_FINE_FREQUENCY
+    if return_state:
+        return np.array(out), d_symbol_spread, fine
     return np.array(out)

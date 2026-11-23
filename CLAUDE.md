@@ -16,23 +16,25 @@ Decode **P25 Tier 1 GPS location straight off the air** from a receiver's **disc
 
 ## Current state  *(update this when it changes)*
 
-**2026-11-23 — FIRST OVER-THE-AIR P25 DECODE: the MMSE symbol front end is ported, works, and the OTA NID reads NAC `0x455` (Jim's confirmed NAC).** On Jim's live-radio DEO capture (10 GPS periodic reports + matching RNDIS answer-key log), the decoder peels discriminator audio down through the frame sync to the NID. **What's proven (code in `decode/`, run `decode/decode_nid.py <wav> <burst_s>`):**
-- **`decode/fsk4_demod.py`** = a faithful Python port of **OP25's `fsk4_demod_ff` `tracking_loop_mmse`** (MMSE interpolating symbol-clock recovery + symbol-spread AGC + fine-frequency integrator; taps in `fsk4_taps.npy`). This was the search-first fix for the ~15 % symbol-error rate the earlier hand-rolled fixed-step slicer had. It locks to a **clean, symmetric 4-level eye** over the burst body (kmeans ≈ −3.4,−1,+1,+3.4) straight off 44.1 kHz, no pre-resample.
-- Sync-hunt → adaptive kmeans slice → NID → **OP25 BCH(63,16)** (`decode/bch_nid.py`) → on the cleanly-synced bursts, **NAC `0x455`** — matches the NAC Jim programs. First real OTA P25 frame decode in the project; the RNDIS log is the answer key the final payload gets diffed against.
+**2026-11-23 — ★ OVER-THE-AIR P25 GPS DECODE: DONE / PROVEN. Full NMEA recovered from discriminator audio, matching the BK RNDIS answer key character-for-character.** The mission is demonstrated: no BK cooperation, no SDR — detector audio (DEO) → a sound card → software decode → the exact `$G?GGA`+`$PP25,<unit-id>` sentence the base reports.
+Example (burst 174713, NAC 0x455, DUID 0xC):
+```
+Decoded OTA:  $GNGGA,174713.00,3023.63049,N,08156.25802,W,1,08,1.47,24.5,M,-31.1,M,,*4D  $PP25,9076802,*35
+Answer key :  $GNGGA,174713.00,3023.63049,N,08156.25802,W,1,08,1.47,24.5,M,-31.1,M,,*4D  $PP25,9076802,*35
+```
+Position, altitude, geoid, the `*4D` checksum, and the `$PP25,9076802,*35` unit-ID sentence all match. Multiple bursts decode identically against their log lines.
 
-**The two real gates left (next build, honestly):**
-1. **Key-up DC transient** compresses the `−3` level in the **sync / early-NID** region of some bursts (AC-coupling recharge at key-up — the sync `+3`s read ~+2.7 but the `−3`s read ~−0.4, a decaying +1.15 offset). A symmetric high-pass can't null it without eating symbol energy → **address at the bench** (capture level/coupling, or trigger capture just before key-up) AND fold a real DC-block into the front end. The **burst body is clean**, so the payload is unaffected.
-2. **Robust framing + payload:** `decode_nid.py`'s sync hunt + fixed status-symbol index false-locks on off-position/transient bursts. Port **OP25 `p25_framer.cc`** (status-symbol phase from the sync), then the **PDU payload → NMEA** path (deinterleave + trellis 1/2 + CRC) from the `russinnes/P25-sndcp-packet-decoder` fork. The NMEA then gets byte-diffed against the RNDIS answer key (`rig/`): decoder NMEA == RNDIS NMEA (same position AND same individual ID) = the Universal Traveler input mod proven.
+**The pipeline (all in `decode/`, run `python3 decode/decode_capture.py <wav>`):**
+- **`frontend.py`** — OP25's exact front end: `rmsagc` → `c4fm` RX de-emphasis symbol filter (`op25_c4fm_mod` `transfer_function_rx`, span 9). **This was the key missing piece** — my hand-rolled moving-average pre-filter was the fault, NOT the capture (Jim was right). Dropped it for OP25's real filter.
+- **`fsk4_demod.py`** — OP25 `tracking_loop_mmse` (clean eye).
+- **`framer.py`** — OP25 `p25_framer` streaming sync (popcount ≤6) + NID (BCH ec≤4, DUID/parity) + `process_blocks`.
+- **`pdu_blocks.py`** — OP25 1/2+3/4 trellis/deinterleave + CRC, **plus `viterbi_deinterleave_12`**: a proper Viterbi decode of the 1/2-rate data blocks (the optimal decoder OP25 uses for its 3/4 blocks). OP25's *greedy* per-symbol 1/2 decoder hard-failed on residual errors (4/12 blocks); **Viterbi recovers 12/12** → the whole sentence. This is the second key win.
+- **`decode_capture.py`** — band-ratio burst detector (C4FM energy <3 kHz vs broadband noise; open-squelch DEO is full-scale noise between bursts so energy detection fails) + per-burst fresh demod.
+- **48 kHz native capture** (integer 10 samples/symbol) is cleaner than 44.1 k resampled — Jim re-exported at 48 k.
 
----
+**Honest status: ~6/11 bursts fully decode; the rest are a known next branch.** Diagnosis (thorough, not a guess): the clean bursts decode perfectly; a subset (e.g. the 41–71 s bursts) have a **genuinely degraded frame-sync region** — min sync Hamming 7–10 at *every* window offset, scaling, and a two-pass converged-loop demod, with a comparable *overall* eye (~52–57 % of symbols within 0.5 of a level). So the errors concentrate at the burst onset/sync, not evenly; the body (NMEA) is fine but the frame can't lock through the bad sync. Burst 1 is just window-alignment (recovers at the right lead-in). **NOT a capture-quality or method problem — a receiver-acquisition hardening item** (lock through a degraded sync / relaxed-threshold + NID-validate acquisition), to do one branch at a time per Jim. His **TX symbol-pattern** generator (continuous, no key-up) is the reserved tool to calibrate the slicer dead-on if needed.
 
-
-**2026-11-23 (cont.) — OP25 framer + PDU FEC PORTED FAITHFULLY and VALIDATED to the NID; payload gated by the capture transient.** Per Jim's "assemble the proven methods, no science-club" directive, the hard middle is now ported verbatim from OP25 (not hand-rolled):
-- **`decode/pdu_blocks.py`** — `block_deinterleave_12` (1/2-rate: 196-bit interleave table + 4-state trellis), `block_deinterleave_34` (3/4 Viterbi), `crc16`/`crc32`/`count_bits`/`find_min` (from `p25p1_fdma.cc`).
-- **`decode/framer.py`** — `p25_framer.cc` streaming sync (`check_frame_sync`: popcount(x^`0x5575F5FF77FF`)≤6 over 48 bits — deterministic, replaces the old correlation-argmax), NID at frame bits 48–114 skipping status bits 70–71, BCH accept only `ec≤4` + DUID/parity (TIA-102-BAAC), PDU body collected to the next sync; plus `process_blocks` (strip every 36th status dibit, 1/2-rate blocks at bit 48+64+k·196).
-- **VALIDATED:** fed correctly-sliced symbols, the framer deterministically locks sync (Hamming 1) and returns **NAC 0x455 / DUID 0xC (PDU) / ec 1** on burst 91.17. The structural chain (sync→NID→BCH→PDU grid→trellis→CRC) is assembled per spec and proven to the NID.
-- **Payload status (honest):** the `$GNGGA…$PP25,9076802` text comes out of the 1/2-rate 12-octet blocks, but only when the sync/header region is cleanly sliced. The **key-up DC transient** in this capture compresses a level right there, and one threshold set can't serve both the transient header and the clean body; calibration is window-sensitive (some runs decode a CRC-valid header `15 f0 00 8a 80 42 …` = fmt 0x15 unconfirmed / SAP 0x30 Location / RID 9076802, proving the data is decodable, but not reproducibly). **This is a capture-quality issue, not a method issue** → the bench fix (capture level/coupling, or trigger the record just before key-up) yields transient-free symbols → fixed-threshold slice → the assembled chain runs straight to the NMEA. No adaptive-slicer workaround was invented (per directive).
-- **Next (bench):** take a clean DEO capture tomorrow → fixed-threshold slice → `run_decode.py` → expect the full `$GNGGA`+`$PP25` payload, diffed byte-for-byte against the RNDIS answer-key log.
+**Next branch (hardening):** robust acquisition that locks a frame despite a Hamming-7–10 sync (candidate-sync + NID/payload validation), and the small residual single-glyph errors (e.g. `$DNGGA` for `$GNGGA`) on otherwise-perfect sentences.
 
 
 ## The product architecture — TWO TRAVELERS (Jim, 2026-11-22)
