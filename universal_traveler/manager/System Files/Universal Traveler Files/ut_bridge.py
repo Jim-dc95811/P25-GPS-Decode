@@ -47,7 +47,7 @@ try:
 except Exception:
     gps_source = None
 
-VERSION = "1.0"
+VERSION = "1.1"
 
 # ---- the sound card (Sound Blaster Play! 3, proven) ----
 DEV   = os.environ.get("UT_AUDIO_DEV", "plughw:0,0")
@@ -59,6 +59,8 @@ SERVE_HOST   = "0.0.0.0"
 SERVE_PORT   = int(os.environ.get("UT_PORT", "10110"))
 SEND_TMO_S   = 5.0        # drop a viewer that can't accept data this fast
 LINK_EVERY_S = 5.0        # audio-link heartbeat cadence
+AUDIO_STALL_S = 10.0      # no audio for this long => sound card hung; restart arecord + alarm
+FEED_ERR_RESET = 5        # this many consecutive decode errors => rebuild the decoder
 
 # ---- the box's own position ----
 GPS_ENABLE   = os.environ.get("UT_GPS", "1") != "0"
@@ -211,8 +213,10 @@ def _drain(proc, q, stop):
             pass
     q.put(None)
 
+def _mk_decoder():
+    return SquelchDecoder(RATE, _on_report, lambda m: None)
+
 def run_live():
-    dec = SquelchDecoder(RATE, _on_report, lambda m: None)
     cmd = ["arecord", "-D", DEV, "-f", "S16_LE", "-c", str(CH), "-r", str(RATE), "-t", "raw", "-q"]
     frame = CH * 2
     inv = 1.0 / (32768.0 * CH)
@@ -220,22 +224,29 @@ def run_live():
           % (VERSION, DEV, RATE, CH), flush=True)
     while True:
         try:
-            p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         except Exception as e:
             _set_link(False)
             print("[ut] cannot start arecord (%s) - alsa-utils installed? retrying" % e, flush=True)
             time.sleep(4); continue
         print("[ut] listening for GPS bursts ...", flush=True)
         _set_link(True)
+        dec = _mk_decoder()                  # fresh decoder each session - no stale buffer/baseline
         q = queue.Queue(maxsize=1024)
         rstop = threading.Event()
         threading.Thread(target=_drain, args=(p, q, rstop), daemon=True).start()
-        carry = b""
+        carry = b""; feed_errs = 0; got_audio = False
         try:
             while True:
-                data = q.get()
-                if data is None:
+                try:
+                    data = q.get(timeout=AUDIO_STALL_S)      # watchdog: a hung card never delivers
+                except queue.Empty:
+                    print("[ut] no audio for %gs - sound card hung or gone; restarting arecord"
+                          % AUDIO_STALL_S, flush=True)
                     break
+                if data is None:                              # arecord ended (card pulled / died)
+                    break
+                got_audio = True
                 data = carry + data
                 usable = len(data) - (len(data) % frame)
                 carry = data[usable:]
@@ -244,14 +255,30 @@ def run_live():
                     blk = [v / 32768.0 for v in a]
                 else:
                     blk = [sum(a[i:i + CH]) * inv for i in range(0, len(a), CH)]
-                if blk:
-                    dec.feed(blk)
+                if not blk:
+                    continue
+                try:                                          # isolate the decode: one bad burst
+                    dec.feed(blk); feed_errs = 0              # must not drop the audio tap
+                except Exception as e:
+                    feed_errs += 1
+                    print("[ut] decode block error: %s (skipped, capture continues)" % e, flush=True)
+                    if feed_errs >= FEED_ERR_RESET:
+                        print("[ut] repeated decode errors - rebuilding the decoder", flush=True)
+                        dec = _mk_decoder(); feed_errs = 0
         except Exception as e:
-            print("[ut] decode error: %s - restarting arecord" % e, flush=True)
+            print("[ut] capture error: %s - restarting arecord" % e, flush=True)
         finally:
             rstop.set()
             try: p.kill()
             except Exception: pass
+        if not got_audio:                     # fast fail: surface why arecord produced nothing
+            try:
+                err = (p.stderr.read() or b"").decode("utf-8", "replace").strip() if p.stderr else ""
+            except Exception:
+                err = ""
+            if err:
+                print("[ut] arecord: %s" % err.splitlines()[0], flush=True)
+            print("[ut] no audio captured - check the sound card / 'arecord -l' and the DEV (%s)." % DEV, flush=True)
         _set_link(False)
         time.sleep(2)
 
@@ -280,10 +307,16 @@ def main():
     threading.Thread(target=_link_beat, daemon=True).start()
     if GPS_ENABLE and gps_source:
         threading.Thread(target=_gps_loop, daemon=True).start()
+    args = sys.argv[1:]
     wav = None
-    for i, a in enumerate(sys.argv[1:]):
-        if a == "--replay" and i + 2 <= len(sys.argv[1:]): wav = sys.argv[i + 2]
-        elif a.lower().endswith(".wav"): wav = a
+    if "--replay" in args:
+        k = args.index("--replay")
+        if k + 1 < len(args):
+            wav = args[k + 1]
+    else:
+        for a in args:
+            if a.lower().endswith(".wav"):
+                wav = a; break
     try:
         if wav: run_replay(wav)
         else:   run_live()
