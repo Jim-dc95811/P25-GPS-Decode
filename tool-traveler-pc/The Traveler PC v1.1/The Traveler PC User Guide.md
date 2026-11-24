@@ -22,7 +22,7 @@ There is no box to flash, no router, no SSH — that machinery only exists to ge
 
 - **USB sound card → the radio's detector / discriminator audio** (the flat *detected* audio — e.g. a Kenwood NX-700 **DEO pin 19** with the radio set **WIDE** — not the speaker/voice audio). This is what the PC decodes GPS from. A Sound Blaster Play! 3 is proven; wire DEO → 4.7 µF → 2.2 kΩ → the sound card's **mic tip**, ground → sleeve, mic boost off, level low.
 - **Garmin USB GPS → the PC** for **MY POSITION** (your own you-are-here dot). A Garmin GPS 18 USB is proven. Optional — without it, you still see the whole decoded fleet.
-- **Your maps** — drop your offline **`.tpkx` or `.mbtiles`** files into the **`Maps`** folder next to the `.bat`. No maps = the fleet still plots on a blank map; add maps to see the ground.
+- **Your maps** — your offline **`.tpkx` or `.mbtiles`** files. The `Maps` folder next to the `.bat` is the default spot, but you are **not locked to it**: use **Maps → Change maps folder…** on the screen to point The Traveler PC at any folder on this PC where your maps live (handy for big `.tpkx` files you keep elsewhere). Your choice is remembered. No maps = the fleet still plots on a blank map; add maps to see the ground.
 
 The radio is only ever **received** — The Traveler PC never transmits or changes a radio.
 
@@ -40,8 +40,8 @@ The first time the decoder runs it may ask which sound-card input the radio is w
 
 - **Each unit is plotted by its ID**, the dot matching the radio. **Green** = live, **amber** = stale.
 - **MY POSITION** is the teal dot — your own Garmin fix.
-- **Maps** (top right) switches between the maps in your `Maps` folder.
-- **Alias** (top right) lets you give a raw unit ID a crew name (e.g. `9076802` → *Jax 24*). Type the name, click **Save names**, and it shows on the map within a few seconds. Names stick even when that radio isn't transmitting right now.
+- **Maps** (top right) switches between the maps in your maps folder, and **Change maps folder…** lets you point at any folder on this PC.
+- **Alias** (top right) lets you give a raw unit ID a crew name (e.g. `9076802` → *Jax 24*). Edit a name beside any ID, or type **any unit ID** in the bottom row to name a radio **before it ever transmits** (not just the ones on screen). Click **Save names**; it shows on the map within a few seconds. Names stick even when that radio isn't transmitting right now.
 - A unit that goes quiet turns amber so you can read the fleet at a glance.
 
 ---

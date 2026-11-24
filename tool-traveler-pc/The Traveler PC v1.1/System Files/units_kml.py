@@ -84,7 +84,17 @@ LOG_DIR     = Path(__file__).with_name("logs")   # daily track CSVs land here
 # (prefix a map "1_" or "a_" to make it the one the bare URL shows first).
 # Where removable drives mount: OpenWrt/GL mountd uses /tmp/mountd/<diskN_partM>/. Override or
 # extend for a Pi (e.g. "/mnt:/media") via LOOKOUT_MAP_ROOTS (os.pathsep-separated).
-MAP_ROOTS = [p for p in (os.environ.get("LOOKOUT_MAP_ROOTS") or "/tmp/mountd").split(os.pathsep) if p]
+MAPS_CFG = Path(__file__).with_name("maps_folder.txt")   # a maps folder the user picked in the app (The Traveler PC)
+def _map_roots():
+    # 1) a folder the user chose in the app (persisted by pick_maps.py), if it still exists
+    try:
+        p = MAPS_CFG.read_text(encoding="utf-8").strip()
+        if p and os.path.isdir(p):
+            return [p]
+    except OSError:
+        pass
+    # 2) env override (the .bat points this at the bundled Maps folder); 3) the default mount
+    return [q for q in (os.environ.get("LOOKOUT_MAP_ROOTS") or "/tmp/mountd").split(os.pathsep) if q]
 _ASSET_DIR   = Path(__file__).resolve().parent
 _meta_cache  = {}          # realpath -> meta dict (cached on a good read only)
 _readers     = {}          # realpath -> _Tpkx instance (tpkx only; mbtiles open per request)
@@ -208,7 +218,7 @@ def _scan_dirs():
     """Each directory to look in for maps: every mounted partition under each map root, plus the
     root itself (so LOOKOUT_MAP_ROOTS may point straight at a maps folder, e.g. on a Pi)."""
     dirs = []
-    for root in MAP_ROOTS:
+    for root in _map_roots():
         r = Path(root)
         try:
             if not r.is_dir():
@@ -568,6 +578,8 @@ class _H(BaseHTTPRequestHandler):
         path = urlparse(self.path).path.rstrip("/")
         if path == "/admin/aliases":
             return self._admin(read=True)
+        if path == "/pick-folder":
+            return self._pick_folder()
         if path in ("/open.kml", "/open", "/live", "/live.kml"):
             return self._serve_opener()   # one URL any device opens to get the LIVE, refreshing map
         if path == "/fetchlog":
@@ -671,6 +683,23 @@ class _H(BaseHTTPRequestHandler):
             return self._json(200, {"ok": True, "count": count})
         except (ValueError, OSError) as e:
             return self._json(400, {"ok": False, "error": str(e)})
+
+    # ---- The Traveler PC: open a native folder picker on this PC so the user can
+    #      point at ANY folder of maps (remembered in maps_folder.txt), then rescan. ----
+    def _pick_folder(self):
+        folder = ""
+        try:
+            import subprocess, sys as _sys
+            script = str(Path(__file__).with_name("pick_maps.py"))
+            r = subprocess.run([_sys.executable, script, "--dialog"],
+                               capture_output=True, text=True, timeout=180)
+            lines = [ln.strip() for ln in (r.stdout or "").splitlines() if ln.strip()]
+            folder = lines[-1] if lines else ""
+        except Exception:
+            folder = ""
+        _maps(force=True)                       # rescan the newly-chosen folder right now
+        ok = bool(folder) and os.path.isdir(folder)
+        return self._json(200, {"ok": ok, "folder": folder, "count": len(_maps())})
 
     def _json(self, code, obj):
         body = json.dumps(obj).encode("utf-8")

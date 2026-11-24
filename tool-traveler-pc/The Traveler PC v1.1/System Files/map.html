@@ -49,6 +49,10 @@ html,body{height:100%;background:#0b0f14;color:#e6eef6;font-family:-apple-system
 .ulbl{background:rgba(11,15,20,.74);border:none;color:#fff;font-weight:600;font-size:13px;box-shadow:none;padding:1px 6px;border-radius:4px}
 .ulbl::before{display:none}
 .leaflet-container{background:#0b0f14}
+.leaflet-top{top:calc(52px + env(safe-area-inset-top,0px))}
+#amenu .newid{flex:0 0 108px;min-width:0}
+#amenu .act .alt{background:#17344a;border:1px solid #255277;color:#bfe0ff}
+#menu a.pick{color:#7fd1ff;font-weight:700}
 </style></head><body>
 <div id="map"></div>
 <div id="bar"><span id="title">THE TRAVELER PC</span><span id="mapname"></span>
@@ -116,15 +120,26 @@ function loadMaps(){
     if(atRoot){ cur = maps[0] || null; }    // root -> first map alphabetically (named by the crew)
     else { maps.forEach(function(mp){ if(mp.base.replace(/\/+$/,"")===PATHBASE) cur=mp; }); }
     if(cur && TILEBASE===null){ TILEBASE = cur.base.replace(/\/+$/,""); pollMeta(); }  // first resolve
-    var html='<h4>Maps on this box</h4>';
-    if(maps.length===0){ html+='<a class="cur"><span class="sub">No maps found &middot; insert an SSD with .tpkx / .mbtiles</span></a>'; }
+    var html='<h4>Maps</h4>';
+    if(maps.length===0){ html+='<a class="cur"><span class="sub">No maps in this folder &middot; use "Change maps folder" below, or drop a .tpkx / .mbtiles in</span></a>'; }
     maps.forEach(function(mp){
       var isCur = cur && (mp.base===cur.base);
       html+='<a href="'+mp.base+'" class="'+(isCur?"cur":"")+'">'+esc(mp.name)+'</a>';
     });
+    html+='<a href="#" class="pick" id="pickfolder">&#128193; Change maps folder&hellip;</a>';
     document.getElementById("menu").innerHTML=html;
+    var pf=document.getElementById("pickfolder"); if(pf) pf.onclick=changeFolder;
     document.getElementById("mapname").textContent = cur ? "· "+cur.name : "";
   }).catch(function(){});
+}
+// Let the user point The Traveler PC at ANY folder of maps on this PC (remembered).
+// /pick-folder opens a native folder dialog on this PC; then we reload to show the new folder.
+function changeFolder(e){
+  if(e){ e.preventDefault(); e.stopPropagation(); }
+  var mn=document.getElementById("menu");
+  mn.innerHTML='<h4>Maps</h4><a class="cur"><span class="sub">Opening the folder picker on this PC &mdash; choose where your maps are&hellip;</span></a>';
+  fetch("/pick-folder").then(function(r){return r.json()}).then(function(){ location.reload(); })
+   .catch(function(){ loadMaps(); });
 }
 document.getElementById("maps").onclick=function(e){
   e.stopPropagation();
@@ -177,28 +192,31 @@ function renderAlias(){
     Object.keys(al).forEach(function(k){ ids[k]=1; });               // keep names for units not heard right now
     var keys=Object.keys(ids).sort();
     var html='<h4>Name your units</h4>';
-    if(keys.length===0){ html+='<div class="empty">No fleet units heard yet. A name you set here sticks for when that radio keys up.</div>'; }
     keys.forEach(function(id){
       html+='<div class="row"><span class="uid">'+esc(id)+'</span>'+
             '<input data-id="'+esc(id)+'" value="'+esc(al[id]||"")+'" placeholder="crew name" maxlength="64"></div>';
     });
-    html+='<div class="act"><button id="asave">Save names</button></div><div id="amsg"></div>';
+    html+='<div class="row addrow"><input class="newid" placeholder="unit ID" maxlength="24" inputmode="numeric">'+
+          '<input class="newname" placeholder="crew name" maxlength="64"></div>';
+    html+='<div class="act"><button id="asave">Save names</button></div>'+
+          '<div id="amsg">Type any unit ID above to name it before it ever transmits.</div>';
     box.innerHTML=html;
     var s=document.getElementById("asave"); if(s) s.onclick=saveAlias;
   });
 }
 function saveAlias(){
   var tbl={};
-  Array.prototype.forEach.call(document.querySelectorAll("#amenu input"),function(inp){
+  Array.prototype.forEach.call(document.querySelectorAll("#amenu input[data-id]"),function(inp){
     var id=inp.getAttribute("data-id"), nm=(inp.value||"").trim();
     if(nm) tbl[id]=nm;
   });
+  var nid=document.querySelector("#amenu .newid"), nn=document.querySelector("#amenu .newname");
+  if(nid && nid.value.trim() && nn && nn.value.trim()){ tbl[nid.value.trim()]=nn.value.trim(); }
   var msg=document.getElementById("amsg"); if(msg) msg.textContent="saving ...";
   fetch("/admin/aliases?token="+ATOKEN,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(tbl)})
    .then(function(r){return r.json()}).then(function(d){
-     if(msg) msg.textContent = (d&&d.ok) ? ("Saved "+d.count+" name"+(d.count==1?"":"s")+" · showing on the map now")
-                                         : ("Could not save: "+((d&&d.error)||"check the server"));
-     if(d&&d.ok) tick();
+     if(d&&d.ok){ tick(); renderAlias(); }
+     else if(msg) msg.textContent = "Could not save: "+((d&&d.error)||"check the server");
    }).catch(function(e){ if(msg) msg.textContent="Could not save: "+e; });
 }
 document.getElementById("alias").onclick=function(e){
@@ -215,6 +233,9 @@ document.getElementById("maps").addEventListener("click",function(){ document.ge
 // ---- Claude McNally startup badge: the maker's nameplate on screen start, then it clears to the map ----
 (function(){
   var s=document.getElementById("splash"); if(!s) return;
+  var shown=false; try{ shown=sessionStorage.getItem("tpc_badge")==="1"; }catch(e){}
+  if(shown){ s.style.display="none"; return; }   // once per session (a folder-change reload won't re-badge)
+  try{ sessionStorage.setItem("tpc_badge","1"); }catch(e){}
   function go(){ s.classList.add("hide"); setTimeout(function(){ s.style.display="none"; },700); }
   s.addEventListener("click", go);
   setTimeout(go, 2600);
