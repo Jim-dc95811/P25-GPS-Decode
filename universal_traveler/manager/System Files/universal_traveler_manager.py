@@ -31,16 +31,24 @@ Run:  double-click  Start Universal Traveler Manager.bat
 import os, sys, json, socket, http.client, threading, queue
 from pathlib import Path
 import tkinter as tk
-from tkinter import ttk, filedialog
+from tkinter import ttk, filedialog, messagebox
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))                 # so the QR tab can import the sealed lookout_qr
 
-VERSION       = "1.1"
+VERSION       = "1.2"
 MAP_PORT      = 8088
 FEED_PORT     = 10110
 DEFAULT_IP    = "192.168.8.1"
 DEFAULT_TOKEN = "lookout"
+
+# --- op24 firmware, for the optional scripted flash (Flash to op24 tab) --------
+# The exact GL-MT3000 OpenWrt 24.10 / kernel-6.6 image we proved. The flash NEVER
+# proceeds unless the bytes on the box hash to this - a corrupt image is the one
+# real way to brick, so the on-box SHA-256 check is the hard gate.
+FW_NAME   = "mt3000-op-4.8.3-op24_beta1-911-1108-1762535774.bin"
+FW_SHA256 = "1afcd73e389a89cfb0fe05e8a828f6e755ca708aa3f300bae5d7ce32d66d4eca"
+FW_BYTES  = 63407569
 
 
 # --- the provisioning sequence -------------------------------------------------
@@ -91,6 +99,14 @@ def all_fetch_files():
 
 def default_files_dir():
     return HERE / "Universal Traveler Files"
+
+def default_fw_path():
+    """Where the op24 .bin is expected: bundled beside the app first, else a copy already
+    sitting in the user's Downloads. Returns a Path if found, else None (user browses)."""
+    for cand in (HERE / "firmware" / FW_NAME, Path.home() / "Downloads" / FW_NAME):
+        if cand.is_file():
+            return cand
+    return None
 
 
 # ======================= Set up a box tab =======================
@@ -213,8 +229,8 @@ class SetupTab(tk.Frame):
         self.write("This box is on kernel %s - too old for the Universal Traveler." % rel, "err")
         self.write("It needs the OpenWrt 24.10 / kernel-6.6 firmware so the USB sound card and the "
                    "map SSD work together on one hub.", "err")
-        self.write("Flash it via GL's dashboard (Settings -> Upgrade -> the 24.10 / op24 image), "
-                   "then run this again. This app never flashes firmware itself.", "err")
+        self.write("Flash it with the \"Flash to op24\" tab in this app (or GL's dashboard), then "
+                   "do GL first-boot and run this again.", "err")
         return False
 
     def _verify(self, ip):
@@ -437,11 +453,197 @@ class QrTab(tk.Frame):
         self.status.config(text=msg, fg="#c00")
 
 
+# ======================= Flash to op24 tab =======================
+class FlashTab(tk.Frame):
+    """Scripted firmware flash to OpenWrt 24.10 / kernel 6.6. Standalone phase: it streams
+    the proven .bin to the box's RAM (/tmp), SHA-256 verifies it ON THE BOX, then runs
+    `sysupgrade -n` (no-keep-settings, mandatory op21->op24) and waits for the box to return.
+    A -n flash resets the box to factory, so afterward you do GL first-boot (set a password)
+    and then 'Set up a box'. If anything fails, the box is a $100 widget with a reset button:
+    hold reset ~10s for GL's recovery page and re-flash."""
+    def __init__(self, master):
+        super().__init__(master)
+        self.q = queue.Queue(); self.running = False
+        dflt = default_fw_path()
+        self.fw = tk.StringVar(value=str(dflt) if dflt else "")
+
+        top = tk.Frame(self, padx=10, pady=10); top.pack(fill="x")
+        tk.Label(top, text="Box IP").grid(row=0, column=0, sticky="w")
+        self.ip = tk.Entry(top, width=16); self.ip.insert(0, DEFAULT_IP); self.ip.grid(row=0, column=1, padx=6)
+        tk.Label(top, text="Admin password").grid(row=0, column=2, sticky="w")
+        self.pw = tk.Entry(top, width=16, show="*"); self.pw.grid(row=0, column=3, padx=6)
+        self.btn = tk.Button(top, text="Flash to op24", command=self.start,
+                             bg="#b5651d", fg="white", font=("Segoe UI", 9, "bold"))
+        self.btn.grid(row=0, column=4, padx=6)
+
+        src = tk.LabelFrame(self, text=" op24 firmware image (.bin) ", padx=10, pady=6)
+        src.pack(fill="x", padx=12, pady=(2, 4))
+        tk.Entry(src, textvariable=self.fw, width=52).grid(row=0, column=0, sticky="w", padx=(2, 4))
+        tk.Button(src, text="Change...", command=self._browse).grid(row=0, column=1, sticky="w")
+
+        tk.Label(self, anchor="w", padx=12, fg="#555", justify="left",
+                 text="Flashes the box to OpenWrt 24.10 / kernel 6.6 - the kernel where the sound card and "
+                      "the map SSD share one hub. Only needed on a box still on the old (5.4) firmware.\n"
+                      "This ERASES the box (resets to factory). Keep it on stable power and don't touch it "
+                      "for ~3-4 minutes. If a flash ever fails, hold the reset button ~10s for GL's recovery "
+                      "page and flash again.\nAfter it finishes: open the box, do GL first-boot (set an admin "
+                      "password), then use \"Set up a box\"."
+                 ).pack(fill="x")
+
+        box = tk.Frame(self, padx=12, pady=6); box.pack(fill="both", expand=True)
+        self.log = tk.Text(box, wrap="word", height=14, font=("Consolas", 9),
+                           bg="#101418", fg="#d6e2ee", insertbackground="#d6e2ee")
+        lsb = tk.Scrollbar(box, command=self.log.yview); self.log.configure(yscrollcommand=lsb.set)
+        self.log.pack(side="left", fill="both", expand=True); lsb.pack(side="right", fill="y")
+        self.log.configure(state="disabled")
+        self.log.tag_config("ok", foreground="#49d17a")
+        self.log.tag_config("err", foreground="#ff6b6b")
+        self.log.tag_config("step", foreground="#8ab4ff")
+        self.after(120, self._drain)
+
+    def _browse(self):
+        f = filedialog.askopenfilename(title="Pick the op24 firmware .bin",
+                                       filetypes=[("Firmware image", "*.bin"), ("All files", "*.*")],
+                                       initialdir=str(Path(self.fw.get()).parent) if self.fw.get() else str(Path.home()))
+        if f: self.fw.set(f)
+
+    def write(self, msg, tag=None): self.q.put((msg, tag))
+
+    def _drain(self):
+        try:
+            while True:
+                msg, tag = self.q.get_nowait()
+                self.log.configure(state="normal")
+                self.log.insert("end", msg + "\n", tag or ())
+                self.log.see("end"); self.log.configure(state="disabled")
+        except queue.Empty:
+            pass
+        self.after(120, self._drain)
+
+    def start(self):
+        if self.running: return
+        ip = self.ip.get().strip(); pw = self.pw.get(); fw = self.fw.get().strip()
+        if not ip or not pw:
+            return self.write("Enter the box IP and its admin password first.", "err")
+        if not fw or not Path(fw).is_file():
+            return self.write("Pick the op24 firmware .bin (Change...). Expected: %s" % FW_NAME, "err")
+        import hashlib
+        h = hashlib.sha256(Path(fw).read_bytes()).hexdigest()
+        if h != FW_SHA256:
+            return self.write("That .bin does not match the known-good op24 image (SHA-256 mismatch) - "
+                              "refusing to flash it. Pick the right file.\n  got:      %s\n  expected: %s"
+                              % (h, FW_SHA256), "err")
+        if not messagebox.askyesno("Flash to op24",
+                "This ERASES the box and flashes OpenWrt 24.10 / kernel 6.6.\n\n"
+                "Keep it on stable power and don't touch it for ~3-4 minutes.\n\nContinue?"):
+            return
+        self.running = True
+        self.btn.config(state="disabled", text="Flashing...")
+        self.log.configure(state="normal"); self.log.delete("1.0", "end"); self.log.configure(state="disabled")
+        threading.Thread(target=self._run, args=(ip, pw, fw), daemon=True).start()
+
+    def _capture(self, c, cmd):
+        _in, out, _e = c.exec_command(cmd, timeout=30)
+        return out.read().decode("utf-8", "replace").strip()
+
+    def _put_bin(self, c, local, remote):
+        """Stream the firmware to the box in chunks (cat >), with progress. dropbear-safe."""
+        total = os.path.getsize(local); sent = 0; last = 0
+        stdin, stdout, stderr = c.exec_command("cat > '%s'" % remote, timeout=900)
+        with open(local, "rb") as fh:
+            while True:
+                b = fh.read(262144)
+                if not b: break
+                stdin.write(b); sent += len(b)
+                if sent - last >= 8 * (1 << 20):
+                    last = sent
+                    self.write("   uploaded %d / %d MB" % (sent >> 20, total >> 20))
+        stdin.flush(); stdin.channel.shutdown_write()
+        return stdout.channel.recv_exit_status()
+
+    def _run(self, ip, pw, fw):
+        import time
+        try:
+            import paramiko
+        except ImportError:
+            self.write("The SSH library (paramiko) is not installed. Close this and run the .bat "
+                       "again - it installs it.", "err")
+            return self._done()
+        c = paramiko.SSHClient()
+        c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        try:
+            self.write("Connecting to %s ..." % ip, "step")
+            c.connect(ip, username="root", password=pw, timeout=12, look_for_keys=False, allow_agent=False)
+            self.write("Connected.", "ok")
+        except Exception as e:
+            self.write("Could not log in: %s" % e, "err")
+            self.write("Check the IP, that it is the box, and the admin password. After a reset/flash the "
+                       "box's SSH identity changes - that's fine, this app auto-accepts it.", "err")
+            return self._done()
+        try:
+            rel = self._capture(c, "uname -r") or "?"
+            self.write("Box kernel %s" % rel, "step")
+            if rel.split(".", 1)[0].isdigit() and int(rel.split(".", 1)[0]) >= 6:
+                self.write("Already on kernel 6.x (op24) - no flash needed. Go to \"Set up a box\".", "ok")
+                return self._done()
+            remote = "/tmp/sysupgrade.bin"
+            self.write("== Uploading the op24 image to the box's RAM (~%d MB) ==" % (FW_BYTES >> 20), "step")
+            rc = self._put_bin(c, fw, remote)
+            if rc != 0:
+                self.write("Upload failed (exit %s)." % rc, "err"); return self._done()
+            self.write("== Verifying the image on the box (SHA-256) ==", "step")
+            got = (self._capture(c, "sha256sum '%s' 2>/dev/null" % remote).split() or ["?"])[0]
+            if got != FW_SHA256:
+                self.write("On-box hash does NOT match - the upload is corrupt. NOT flashing.\n  got:      %s\n"
+                           "  expected: %s" % (got, FW_SHA256), "err")
+                self._capture(c, "rm -f '%s'" % remote)
+                return self._done()
+            self.write("Image verified byte-for-byte. Flashing now.", "ok")
+            self.write("== Flashing (the box reboots; SSH will drop - expected) ==", "step")
+            try:
+                _in, out, _e = c.exec_command("sysupgrade -n '%s'" % remote, timeout=30)
+                try:
+                    for line in iter(out.readline, ""):
+                        if line.strip(): self.write("   " + line.rstrip())
+                except Exception:
+                    pass
+            except Exception:
+                pass            # the connection dies as the box goes down - that's the flash starting
+            try: c.close()
+            except Exception: pass
+            self.write("Image written. Waiting for the box to come back (up to 4 min) ...", "step")
+            time.sleep(25)      # let it actually go down before we start polling
+            back = False; deadline = time.time() + 240
+            while time.time() < deadline:
+                try:
+                    s = socket.create_connection((ip, 80), timeout=4); s.close(); back = True; break
+                except Exception:
+                    time.sleep(5)
+            if back:
+                self.write("\nFLASHED - the box is back and reset to factory op24.", "ok")
+                self.write("Next: open  http://%s  , do GL first-boot (set an admin password), then use "
+                           "\"Set up a box\" (it confirms kernel 6.6 and installs everything)." % ip, "ok")
+            else:
+                self.write("\nThe box didn't answer within 4 minutes. Give it another minute and open "
+                           "http://%s . If it's dark, hold reset ~10s for GL's recovery page and re-flash." % ip, "err")
+        except Exception as e:
+            self.write("Flash stopped: %s" % e, "err")
+        finally:
+            try: c.close()
+            except Exception: pass
+            self._done()
+
+    def _done(self):
+        self.running = False
+        self.after(0, lambda: self.btn.config(state="normal", text="Flash to op24"))
+
+
 if __name__ == "__main__":
     root = tk.Tk()
     root.title("Universal Traveler Manager v" + VERSION)
-    root.geometry("620x620")
+    root.geometry("640x640")
     nb = ttk.Notebook(root)
+    nb.add(FlashTab(nb), text="  Flash to op24  ")
     nb.add(SetupTab(nb), text="  Set up a box  ")
     nb.add(NamesTab(nb), text="  Name units  ")
     nb.add(QrTab(nb),    text="  Make QR card  ")
