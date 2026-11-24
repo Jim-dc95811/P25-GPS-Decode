@@ -14,21 +14,37 @@
 
 The **Universal Traveler** is a small battery box (a GL-MT3000 travel router) that **decodes GPS positions straight off the radio** — from the radio's audio, with a USB sound card — and serves a live **split-screen map** to any phone, tablet or laptop with nothing installed on it. No cooperating base, no SDR, no PC in the field.
 
-This app turns a bare box into a Universal Traveler in **one button**, and also names your units and makes a scan-to-open QR card.
+This app turns a bare box into a Universal Traveler in **one button**. It also flashes the box to the right firmware, names your units, and makes scan-to-open QR stickers. There are four tabs, left to right in the order you use them: **Flash to op24 → Set up a box → Name units → Make QR card.**
 
 ---
 
-## Before you start — put the box on the right firmware (one time)
+## The firmware the box needs (one time)
 
-The Universal Traveler needs the box to be on the **OpenWrt 24.10 (kernel 6.6)** firmware. That is the firmware where the USB sound card and the map SSD can share the box's one USB hub. A box fresh from the carton is usually on the older firmware.
+The Universal Traveler needs the box on the **OpenWrt 24.10 (kernel 6.6)** firmware. That is the firmware where the USB sound card and the map SSD can share the box's one USB hub. A box fresh from the carton is usually on the older (5.4) firmware, so it must be flashed once. You have two ways to do it:
 
-Flash it once through **GL's own dashboard** (open `http://192.168.8.1` in a browser → **Settings → Upgrade** → choose the **24.10 / op24** image). This app **does not** flash firmware — flashing is GL's job, and doing it from here could brick a box. The app simply checks the firmware and tells you if it's wrong.
+- **The "Flash to op24" tab in this app** (Tab 1 below) — scripted, with a byte-for-byte check on the box before it flashes.
+- **GL's own dashboard** — open `http://192.168.8.1` → **Settings → Upgrade** → choose the **24.10 / op24** image, **keep-settings OFF**.
 
-> The box also needs the internet **once** during setup, for its system packages (Python, libusb, the sound-card driver) from GL/OpenWrt's own feed. After that it never needs the internet again.
+Either way the box also needs the internet **once** during *setup* (not the flash), for its system packages (Python, libusb, the sound-card driver) from GL/OpenWrt's own feed. After that it never needs the internet again.
 
 ---
 
-## Tab 1 — Set up a box
+## Tab 1 — Flash to op24
+
+Only needed if the box is still on the old (5.4) firmware. **This erases the box** (resets it to factory), so do it on a bench with steady power, not in the field.
+
+1. Plug the box in, connect your PC to it.
+2. Enter the box **IP** (`192.168.8.1`) and its current **admin password** (set on GL's first-boot).
+3. The **firmware image** box should already point at the op24 `.bin` in your Downloads; if not, click **Change…** and pick it.
+4. Click **Flash to op24** and confirm. Keep the box on power and don't touch it for ~3–4 minutes.
+
+The app uploads the image to the box's memory, **verifies its SHA-256 on the box** (it refuses to flash a corrupt or wrong image), flashes it, waits for the box to come back, and then **confirms the flash actually took** before saying FLASHED. When it's done the box is factory op24 — open `http://192.168.8.1`, do GL first-boot (set a new admin password), then go to **Set up a box**.
+
+> If a flash ever fails, the box isn't lost: hold its **reset** button ~10 seconds for GL's recovery page and flash again.
+
+---
+
+## Tab 2 — Set up a box
 
 1. Plug the new box in, connect your PC to it (its Wi-Fi or its LAN port).
 2. In **New box IP** leave `192.168.8.1` (the default) unless you changed it.
@@ -49,7 +65,7 @@ Use a **powered** USB hub — the box's own USB power is tight for three devices
 
 ---
 
-## Tab 2 — Name units
+## Tab 3 — Name units
 
 Every radio shows on the map by its unit ID. To give them crew names:
 
@@ -59,20 +75,26 @@ Every radio shows on the map by its unit ID. To give them crew names:
 
 ---
 
-## Tab 3 — Make QR card
+## Tab 4 — Make QR card
 
-Makes a print-ready sticker. A crew scans it with a phone camera and the split-screen map opens — no app, no typing, no login.
+Makes a print-ready sticker a crew scans with a phone camera — no app, no typing, no login. Pick what the sticker should do:
 
-1. Enter the box **IP** (and an optional label).
-2. Click **Make QR card.** The card is saved to your **Downloads** folder.
-3. Print it and stick it on the box.
+- **Open the map** — scanning opens the split-screen map. The address is carried as `http://` so the phone won't force `https`.
+- **Join the Wi-Fi** — scanning joins the box's Wi-Fi. Enter the **Wi-Fi name (SSID)** and **password** (leave the password blank for an open network).
+- **Join + open** — one card with **two** codes: scan the first to join the Wi-Fi, the second to open the map.
+
+Enter the box **IP** (and an optional label for the box), choose the mode, then click **Make QR card**. The card is saved to your **Downloads** folder — print it and stick it on the box.
+
+> **Wi-Fi tip:** if a phone was ever connected to this box's network before, **Forget** that network first or it won't act on the join code. When the phone asks *"stay connected? — the network has no internet,"* answer **Always**, and turn on **Auto-connect**, or Android will drop the box for cellular.
 
 ---
 
 ## Troubleshooting
 
-- **"This box is on kernel 5.4 … too old."** The box is still on the old firmware. Flash the 24.10 / kernel-6.6 image via GL's dashboard (above), then run setup again.
+- **"This box is on kernel 5.4 … too old."** The box is still on the old firmware. Flash it with **Tab 1 (Flash to op24)** or GL's dashboard, then run setup again.
+- **"Stopped at: … the box needs the internet once."** Setup stops and names the step that failed. The box needs a working internet uplink the first time (for Python, libusb, the sound-card driver). Give it internet and run setup again.
+- **"it did NOT flash … still accepts the old password."** The scripted flash refused the image, so the box is unchanged (not bricked). Flash it with **GL's dashboard** instead (keep-settings OFF), then do first-boot and run Set up a box.
 - **"Could not log in."** Check the IP, that it's the right box, and the admin password. If you just flashed or reset the box, its SSH identity changed — that's normal; the app auto-accepts it.
-- **Map page not responding / feed silent after setup.** Re-run setup and watch the log for a package or file error. The box needs its one-time internet for the system packages.
-- **No units on the map.** Units appear when a radio transmits a GPS position. The box's own Garmin dot ("you are here") shows as soon as the Garmin has a fix.
+- **Map page not responding / feed silent after setup.** Watch the log for the step that failed and re-run setup. The box needs its one-time internet for the system packages.
+- **No units on the map.** Units appear when a radio transmits a GPS position. The box's own Garmin dot ("you are here") shows as soon as the Garmin has a fix with a clear sky view.
 - **"needs TWO maps of the same area on the SSD."** Put a matching hybrid **and** street map for the same area on the SSD.

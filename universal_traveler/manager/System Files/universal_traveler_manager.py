@@ -36,7 +36,7 @@ from tkinter import ttk, filedialog, messagebox
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))                 # so the QR tab can import the sealed lookout_qr
 
-VERSION       = "1.2"
+VERSION       = "1.3"
 MAP_PORT      = 8088
 FEED_PORT     = 10110
 DEFAULT_IP    = "192.168.8.1"
@@ -58,7 +58,8 @@ FW_BYTES  = 63407569
 #       "Universal Traveler Files" folder onto the box (cat > remote).
 # The kernel-6.6 check is NOT a step here - it runs first, before anything is
 # touched, so a box on the wrong firmware is refused cleanly (see _run).
-def sh(label, cmd):                            return ("sh", label, cmd)
+def sh(label, cmd, critical=False, timeout=240, onfail=None):
+    return ("sh", label, cmd, critical, timeout, onfail)
 def fetch(label, files, pre=None, post=None):  return ("fetch", label, files, pre, post)
 
 # the sealed DSP decode engine (bit-exact, bolted in untouched)
@@ -66,10 +67,21 @@ _ENGINE = ["squelch.py", "decode_core.py", "frontend.py", "fsk4_demod.py",
            "framer.py", "pdu_blocks.py", "bch_nid.py", "taps_data.py"]
 
 SETUP_STEPS = [
-    sh("Updating the package list",            "opkg update"),
-    sh("Installing Python (takes a minute)",   "which python3 >/dev/null 2>&1 && echo 'already installed' || opkg install python3"),
-    sh("Installing GPS support (libusb)",      "opkg list-installed | grep -q '^libusb-1.0-0 ' && echo 'already installed' || opkg install libusb-1.0-0"),
-    sh("Installing sound-card support",        "opkg list-installed | grep -q '^kmod-usb-audio ' && echo 'already installed' || opkg install kmod-usb-audio alsa-utils"),
+    sh("Updating the package list",            "opkg update", critical=True, timeout=300,
+       onfail="Could not reach the package feed. The box needs the internet ONCE for setup - "
+              "check its uplink (WAN cable or Wi-Fi repeater) and run this again."),
+    sh("Installing Python (takes a minute)",   "which python3 >/dev/null 2>&1 && echo 'already installed' || opkg install python3",
+       critical=True, timeout=600,
+       onfail="python3 could not be installed from the feed (needs internet, or the op24 feed was "
+              "unreachable). Fix the box's internet and run this again."),
+    sh("Installing GPS support (libusb)",      "opkg list-installed | grep -q '^libusb-1.0-0 ' && echo 'already installed' || opkg install libusb-1.0-0",
+       critical=True, timeout=300,
+       onfail="libusb could not be installed (the box's own GPS 'you are here' needs it). "
+              "Check internet and run this again."),
+    sh("Installing sound-card support",        "opkg list-installed | grep -q '^kmod-usb-audio ' && echo 'already installed' || opkg install kmod-usb-audio alsa-utils",
+       critical=True, timeout=300,
+       onfail="The sound-card driver (kmod-usb-audio / alsa-utils) could not be installed - this is "
+              "what the radio audio is captured with. Check internet and run this again."),
     fetch("Delivering the decode engine",      [("ut_bridge.py", "/root/ut_bridge.py")] +
                                                [(f, "/root/" + f) for f in _ENGINE]),
     fetch("Delivering the GPS reader",         [("gps_source.py",   "/root/gps_source.py"),
@@ -189,8 +201,8 @@ class SetupTab(tk.Frame):
         if not base.is_dir(): return None
         return [bp for bp, _r in all_fetch_files() if not (base / Path(bp)).is_file()]
 
-    def _exec(self, c, cmd):
-        _in, out, err = c.exec_command(cmd, timeout=240)
+    def _exec(self, c, cmd, timeout=240):
+        _in, out, err = c.exec_command(cmd, timeout=timeout)
         for line in iter(out.readline, ""):
             if line.strip(): self.write("   " + line.rstrip())
         rc = out.channel.recv_exit_status()
@@ -235,7 +247,7 @@ class SetupTab(tk.Frame):
 
     def _verify(self, ip):
         """Functional check (not just 'a process is alive'): the map page actually serves on
-        :8080 and the decoded feed is listening on :10110."""
+        :8088 and the decoded feed is listening on :10110."""
         ok_map = ok_feed = False
         try:
             c = http.client.HTTPConnection(ip, MAP_PORT, timeout=6)
@@ -282,21 +294,33 @@ class SetupTab(tk.Frame):
             if not self._kernel_ok(c):            # the firmware gate - refuse early, cleanly
                 return self._done()
             self.write("Files: %s\n" % files_dir, "ok")
+            fetch_failed = False
             for step in SETUP_STEPS:
                 kind, label = step[0], step[1]
                 self.write("== %s ==" % label, "step")
                 if kind == "sh":
-                    self._exec(c, step[2])
+                    _, _, cmd, critical, timeout, onfail = step
+                    rc = self._exec(c, cmd, timeout=timeout)
+                    if critical and rc != 0:
+                        self.write("\nStopped at: %s  (exit %s)" % (label, rc), "err")
+                        self.write(onfail or "This step failed; fix the box and run setup again.", "err")
+                        return                       # finally: closes c + resets the button
                 else:
                     _, _, files, pre, post = step
                     if pre: self._exec(c, pre)
                     for bundle_path, remote in files:
                         local = str(Path(files_dir) / Path(bundle_path))
                         rc = self._put_file(c, local, remote)
-                        self.write(("   sent %s" % remote) if rc == 0
-                                   else ("   FAILED writing %s (exit %s)" % (remote, rc)),
-                                   None if rc == 0 else "err")
+                        if rc == 0:
+                            self.write("   sent %s" % remote)
+                        else:
+                            fetch_failed = True
+                            self.write("   FAILED writing %s (exit %s)" % (remote, rc), "err")
                     if post: self._exec(c, post)
+            if fetch_failed:
+                self.write("\nStopped: one or more program files did not transfer (see the FAILED lines "
+                           "above). Check the Universal Traveler Files folder and run setup again.", "err")
+                return
             count = self._capture(c, "ps | grep -c '[p]ython3 /root'") or "0"
             self.write("\nServices running: %s (expected %d)" % (count, SERVICES_EXPECTED), "step")
             self.write("Checking the map actually serves ...", "step")
@@ -412,21 +436,54 @@ class NamesTab(tk.Frame):
 
 # ======================= Make QR card tab =======================
 class QrTab(tk.Frame):
+    """Print-ready QR stickers for the box. Three kinds:
+         Open the map  - scan opens the split-screen map (http://, so the phone won't force https)
+         Join the Wi-Fi- scan joins the box's Wi-Fi
+         Join + open   - one card, two codes: join the Wi-Fi, then open the map
+    The QR encoder (lookout_qr) is the sealed, Android-tested one (exact WIFI: field order)."""
     def __init__(self, master):
         super().__init__(master)
-        top = tk.Frame(self, padx=10, pady=12); top.pack(fill="x")
+        top = tk.Frame(self, padx=10, pady=10); top.pack(fill="x")
         tk.Label(top, text="Box IP").grid(row=0, column=0, sticky="w")
         self.ip = tk.Entry(top, width=16); self.ip.insert(0, DEFAULT_IP); self.ip.grid(row=0, column=1, padx=6)
         tk.Label(top, text="Label (optional)").grid(row=0, column=2, sticky="w")
-        self.name = tk.Entry(top, width=20); self.name.grid(row=0, column=3, padx=6)
+        self.name = tk.Entry(top, width=18); self.name.grid(row=0, column=3, padx=6)
         tk.Button(top, text="Make QR card", command=self.make, bg="#1f6feb", fg="white",
                   font=("Segoe UI", 9, "bold")).grid(row=0, column=4, padx=6)
-        tk.Label(self, anchor="w", padx=12, pady=8, fg="#555", justify="left",
-                 text="Makes a print-ready sticker for the box. A crew scans it with a phone camera and "
-                      "the split-screen map opens - no app, no typing, no login. The QR carries the "
-                      "address explicitly as http:// so the phone won't force https.").pack(fill="x")
+
+        mode = tk.LabelFrame(self, text=" What should the sticker do? ", padx=10, pady=6)
+        mode.pack(fill="x", padx=12, pady=(2, 4))
+        self.mode = tk.StringVar(value="map")
+        for i, (val, txt) in enumerate([("map",   "Open the map"),
+                                        ("wifi",  "Join the Wi-Fi"),
+                                        ("combo", "Join + open (two codes)")]):
+            tk.Radiobutton(mode, text=txt, variable=self.mode, value=val,
+                           command=self._sync).grid(row=0, column=i, sticky="w", padx=(0, 14))
+
+        self.wifi_fr = tk.Frame(self, padx=12, pady=2)
+        tk.Label(self.wifi_fr, text="Wi-Fi name (SSID)").grid(row=0, column=0, sticky="w")
+        self.ssid = tk.Entry(self.wifi_fr, width=22); self.ssid.grid(row=0, column=1, padx=6)
+        tk.Label(self.wifi_fr, text="Password").grid(row=0, column=2, sticky="w")
+        self.wpw = tk.Entry(self.wifi_fr, width=18); self.wpw.grid(row=0, column=3, padx=6)
+        tk.Label(self.wifi_fr, text="(leave the password blank for an open network)",
+                 fg="#777").grid(row=1, column=1, columnspan=3, sticky="w")
+
+        tk.Label(self, anchor="w", padx=12, pady=6, fg="#555", justify="left",
+                 text="A crew scans the sticker with a phone camera - no app, no typing. \"Open the map\" "
+                      "carries the address as http:// so the phone won't force https. For Wi-Fi: if a phone "
+                      "was ever on this network before, Forget it first to re-test, and answer \"stay "
+                      "connected? -> Always\" (the box has no internet, so Android may drop it otherwise)."
+                 ).pack(fill="x")
         self.status = tk.Label(self, text="", anchor="w", fg="#282", padx=12, pady=6, justify="left")
         self.status.pack(fill="x")
+        self._sync()
+
+    def _sync(self):
+        # show the SSID/password row only for the Wi-Fi modes (pack/pack_forget, never reparent)
+        if self.mode.get() in ("wifi", "combo"):
+            self.wifi_fr.pack(fill="x", before=self.status)
+        else:
+            self.wifi_fr.pack_forget()
 
     def make(self):
         try:
@@ -436,16 +493,30 @@ class QrTab(tk.Frame):
         ip = self.ip.get().strip()
         if not ip:
             return self._err("Enter the box IP first.")
+        m = self.mode.get()
+        ssid = self.ssid.get().strip(); wpw = self.wpw.get()
+        if m in ("wifi", "combo") and not ssid:
+            return self._err("Enter the Wi-Fi name (SSID) for a Wi-Fi sticker.")
         url = lookout_qr.normalize("http://%s:%d/" % (ip, MAP_PORT))
         try:
-            img = lookout_qr.make_card(url, box_name=self.name.get().strip())
+            if m == "map":
+                img, _ver = lookout_qr.make_card(url, box_name=self.name.get().strip())
+                kind, opens = "Map", "opens the map at " + url
+            elif m == "wifi":
+                wifi_s = lookout_qr.wifi_payload(ssid, wpw, open_net=(wpw == ""))
+                img, _ver = lookout_qr.make_wifi_card(wifi_s, ssid)
+                kind, opens = "WiFi", "joins Wi-Fi \"" + ssid + "\""
+            else:
+                wifi_s = lookout_qr.wifi_payload(ssid, wpw, open_net=(wpw == ""))
+                img, _ver = lookout_qr.make_combo_card(wifi_s, url, ssid)
+                kind, opens = "Join+Open", "joins Wi-Fi \"" + ssid + "\", then opens the map"
             out_dir = Path.home() / "Downloads"
             out_dir.mkdir(parents=True, exist_ok=True)
-            safe = (self.name.get().strip() or ip).replace(os.sep, "_").replace(" ", "_")
-            path = out_dir / ("Universal_Traveler_QR_%s.png" % safe)
+            tag = (self.name.get().strip() or ip).replace(os.sep, "_").replace(" ", "_")
+            path = out_dir / ("Universal_Traveler_QR_%s_%s.png" % (kind, tag))
             img.save(str(path))
             self.status.config(fg="#282",
-                               text="Saved: %s\nScan opens  %s\nPrint it and stick it on the box." % (path, url))
+                               text="Saved: %s\nScan %s.\nPrint it and stick it on the box." % (path, opens))
         except Exception as e:
             self._err("Could not make the card: %s" % e)
 
@@ -600,18 +671,20 @@ class FlashTab(tk.Frame):
                 return self._done()
             self.write("Image verified byte-for-byte. Flashing now.", "ok")
             self.write("== Flashing (the box reboots; SSH will drop - expected) ==", "step")
+            sysout = []
             try:
-                _in, out, _e = c.exec_command("sysupgrade -n '%s'" % remote, timeout=30)
+                _in, out, _e = c.exec_command("sysupgrade -n '%s' 2>&1" % remote, timeout=30)
                 try:
                     for line in iter(out.readline, ""):
-                        if line.strip(): self.write("   " + line.rstrip())
+                        if line.strip():
+                            sysout.append(line.rstrip()); self.write("   " + line.rstrip())
                 except Exception:
                     pass
             except Exception:
                 pass            # the connection dies as the box goes down - that's the flash starting
             try: c.close()
             except Exception: pass
-            self.write("Image written. Waiting for the box to come back (up to 4 min) ...", "step")
+            self.write("Waiting for the box to come back (up to 4 min) ...", "step")
             time.sleep(25)      # let it actually go down before we start polling
             back = False; deadline = time.time() + 240
             while time.time() < deadline:
@@ -619,19 +692,44 @@ class FlashTab(tk.Frame):
                     s = socket.create_connection((ip, 80), timeout=4); s.close(); back = True; break
                 except Exception:
                     time.sleep(5)
-            if back:
-                self.write("\nFLASHED - the box is back and reset to factory op24.", "ok")
-                self.write("Next: open  http://%s  , do GL first-boot (set an admin password), then use "
-                           "\"Set up a box\" (it confirms kernel 6.6 and installs everything)." % ip, "ok")
-            else:
+            if not back:
                 self.write("\nThe box didn't answer within 4 minutes. Give it another minute and open "
                            "http://%s . If it's dark, hold reset ~10s for GL's recovery page and re-flash." % ip, "err")
+                return
+            # The box is reachable again - but did it ACTUALLY flash? A `sysupgrade -n` flash wipes the
+            # admin password, so if the OLD password still logs in, the flash did NOT take (it refused
+            # the image, e.g. a cross-version metadata check). Don't claim success in that case.
+            if self._pw_still_works(ip, pw):
+                self.write("\nThe box is up but STILL accepts the old password - so it did NOT flash "
+                           "(sysupgrade refused the image; the box is still on its old firmware).", "err")
+                if sysout:
+                    self.write("sysupgrade said:", "err")
+                    for ln in sysout[-8:]: self.write("   " + ln, "err")
+                self.write("Flash it via GL's dashboard instead (Settings -> Upgrade -> the 24.10 / op24 "
+                           "image, keep-settings OFF), then do first-boot and use \"Set up a box\".", "err")
+                return
+            self.write("\nFLASHED - the box is back on factory op24 (the old password no longer works, "
+                       "which confirms the flash took).", "ok")
+            self.write("Next: open  http://%s  , do GL first-boot (set an admin password), then use "
+                       "\"Set up a box\" (it confirms kernel 6.6 and installs everything)." % ip, "ok")
         except Exception as e:
             self.write("Flash stopped: %s" % e, "err")
         finally:
             try: c.close()
             except Exception: pass
             self._done()
+
+    def _pw_still_works(self, ip, pw):
+        """True if the OLD admin password still logs in - which means the box did NOT reset,
+        i.e. sysupgrade did not actually flash (a -n flash wipes the password)."""
+        try:
+            import paramiko
+            t = paramiko.SSHClient(); t.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            t.connect(ip, username="root", password=pw, timeout=8,
+                      look_for_keys=False, allow_agent=False)
+            t.close(); return True
+        except Exception:
+            return False
 
     def _done(self):
         self.running = False
