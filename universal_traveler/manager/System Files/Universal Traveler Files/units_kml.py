@@ -67,7 +67,7 @@ VERSION = "1.12"
 BRIDGE_HOST = "127.0.0.1"     # the bridge's NMEA feed (same box)
 BRIDGE_PORT = 10110
 SERVE_HOST  = "0.0.0.0"       # serve units.kml to the whole LAN
-SERVE_PORT  = 8080
+SERVE_PORT  = 8088
 STALE_S     = 90             # a unit with no update this long is labelled "stale"
 EXPIRE_S    = 7200           # ...and dropped from the map after this long (0 = never)
 RECONNECT_S = 4

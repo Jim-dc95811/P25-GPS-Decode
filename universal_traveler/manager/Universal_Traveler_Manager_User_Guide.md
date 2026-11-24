@@ -37,7 +37,7 @@ Flash it once through **GL's own dashboard** (open `http://192.168.8.1` in a bro
 
 The log shows each step. First it checks the firmware — if the box is still on the old firmware it stops and tells you to flash 6.6 first. Otherwise it installs Python, libusb and the sound-card driver, delivers the decode engine and the map, installs the two boot services, starts them, and then **actually checks the map is serving** before saying **DONE**.
 
-When it's done, plug the **sound card** (radio audio), the **map SSD** and the **Garmin GPS** into the powered hub, and open the map at **`http://192.168.8.1:8080/`**.
+When it's done, plug the **sound card** (radio audio), the **map SSD** and the **Garmin GPS** into the powered hub, and open the map at **`http://192.168.8.1:8088/`**.
 
 ### What goes on the hub
 
