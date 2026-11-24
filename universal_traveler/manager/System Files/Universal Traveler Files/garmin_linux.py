@@ -188,7 +188,7 @@ class GarminLibusb:
                     continue
                 lat, lon, alt, fix, utc, date, spd = d
                 self._log("PVT fix=%d lat=%.5f lon=%.5f" % (fix, lat, lon))
-                if fix < 2 or not G._coords_ok(lat, lon):   # no fix, or NaN/(0,0)/out-of-range
+                if fix < 1 or not G._coords_ok(lat, lon):   # reject only failed-integrity (fix 0) or NaN/(0,0)/out-of-range; trust 1+
                     continue
                 yield G.build_gga(lat, lon, alt, 8, utc)
                 yield G.tag(self_id)
