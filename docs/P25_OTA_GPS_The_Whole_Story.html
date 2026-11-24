@@ -1,0 +1,640 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pulling GPS From Thin Air</title>
+<style>
+  :root{
+    --ink:#14212b; --body:#1d2a33; --muted:#5a6a74;
+    --accent:#0b6e99; --accent2:#0e7c86; --amber:#b5661a; --green:#1f7a4d;
+    --rule:#c7d2d8; --soft:#eef3f5; --softer:#f6f9fa;
+    --code:#0f3a4d;
+  }
+  @page{ size: Letter; margin: 20mm 17mm 18mm 17mm; }
+  *{ box-sizing:border-box; }
+  html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body{
+    margin:0; color:var(--body);
+    font-family:"Charter","Georgia","Times New Roman",serif;
+    font-size:10.6pt; line-height:1.5;
+    counter-reset:sec fig tbl;
+  }
+  h1,h2,h3,h4,.sans,.fig-cap,.tbl-cap,th,.tag,.cover-sub,.cover-meta,.toc,.callout-h,.plain-h{
+    font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif;
+  }
+  h2{ color:var(--ink); font-size:15.5pt; margin:22pt 0 6pt; padding-bottom:3pt;
+     border-bottom:2px solid var(--accent); break-after:avoid; }
+  h2::before{ counter-increment:sec; content:counter(sec) ".\00a0\00a0"; color:var(--accent); }
+  h3{ color:var(--accent); font-size:12pt; margin:14pt 0 3pt; break-after:avoid; }
+  h4{ color:var(--ink); font-size:10.6pt; margin:10pt 0 2pt; letter-spacing:.02em; break-after:avoid; }
+  p{ margin:0 0 7pt; }
+  strong{ color:var(--ink); }
+  em{ color:var(--accent2); font-style:italic; }
+  code,.mono{ font-family:"Consolas","SFMono-Regular",Menlo,monospace; font-size:9.2pt; color:var(--code); }
+  a{ color:var(--accent); text-decoration:none; }
+  ul,ol{ margin:0 0 8pt 0; padding-left:18pt; }
+  li{ margin:0 0 3pt; }
+
+  /* cover */
+  .cover{ height:calc(100vh - 40mm); display:flex; flex-direction:column; break-after:page; }
+  .cover-top{ border-top:4px solid var(--accent); padding-top:10pt; color:var(--muted);
+    font-family:"Segoe UI",Arial,sans-serif; font-size:8.5pt; letter-spacing:.14em; text-transform:uppercase;
+    display:flex; justify-content:space-between; }
+  .cover-mid{ margin-top:26%; }
+  .cover h1{ font-family:"Segoe UI",Arial,sans-serif; color:var(--ink); font-size:35pt; line-height:1.03;
+    margin:0 0 8pt; letter-spacing:-.015em; }
+  .cover-sub{ font-size:13.5pt; color:var(--accent); font-weight:600; margin-bottom:4pt; line-height:1.3; }
+  .cover-sub2{ font-size:11pt; color:var(--muted); font-family:"Segoe UI",Arial,sans-serif; }
+  .cover-meta{ margin-top:auto; font-size:9pt; color:var(--muted); display:flex; justify-content:space-between;
+    border-top:1px solid var(--rule); padding-top:8pt; }
+  .abstract{ margin-top:16pt; background:var(--softer); border-left:3px solid var(--green);
+    padding:12pt 14pt; font-size:9.8pt; }
+  .abstract b{ font-family:"Segoe UI",Arial,sans-serif; letter-spacing:.03em; text-transform:uppercase; font-size:8pt; color:var(--green); display:block; margin-bottom:3pt; }
+
+  /* plain-terms aside */
+  .plain{ background:#eef6fa; border-left:3px solid var(--accent); padding:8pt 12pt; margin:9pt 0; font-size:9.9pt; break-inside:avoid; }
+  .plain-h{ font-size:8.3pt; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin-bottom:2pt; }
+
+  /* callouts */
+  .callout{ background:var(--softer); border:1px solid var(--rule); border-left:3px solid var(--amber);
+    padding:9pt 12pt; margin:9pt 0; font-size:9.8pt; break-inside:avoid; }
+  .callout.key{ border-left-color:var(--green); background:#eefaf2; }
+  .callout-h{ font-size:8.3pt; letter-spacing:.08em; text-transform:uppercase; color:var(--amber); margin-bottom:3pt; }
+  .callout.key .callout-h{ color:var(--green); }
+
+  /* figures */
+  figure{ margin:12pt 0; break-inside:avoid; }
+  figure svg{ width:100%; height:auto; display:block; border:1px solid var(--rule); background:#fff; border-radius:3px; }
+  .fig-cap{ counter-increment:fig; font-size:8.6pt; color:var(--muted); margin-top:4pt; }
+  .fig-cap::before{ content:"Figure " counter(fig) " — "; color:var(--accent); font-weight:600; }
+
+  /* tables */
+  table{ width:100%; border-collapse:collapse; margin:7pt 0 3pt; font-size:9.2pt; break-inside:avoid; }
+  caption{ caption-side:top; text-align:left; counter-increment:tbl; font-size:8.6pt; color:var(--muted); margin-bottom:3pt; }
+  caption::before{ content:"Table " counter(tbl) " — "; color:var(--accent); font-weight:600; font-family:"Segoe UI",Arial,sans-serif; }
+  th{ background:var(--ink); color:#fff; text-align:left; padding:4pt 7pt; font-size:8.6pt; font-weight:600; }
+  td{ padding:4pt 7pt; border-bottom:1px solid var(--rule); vertical-align:top; }
+  tr:nth-child(even) td{ background:var(--softer); }
+  td.mono{ white-space:nowrap; }
+
+  .codeblock{ background:#0f1b24; color:#d6e2ee; border-radius:4px; padding:9pt 12pt; margin:8pt 0; font-family:"Consolas",monospace; font-size:8.8pt; line-height:1.45; white-space:pre-wrap; break-inside:avoid; }
+  .codeblock .c{ color:#7fb2c9; }
+  .lede{ font-size:11.6pt; color:var(--ink); line-height:1.45; }
+  hr.soft{ border:0; border-top:1px solid var(--rule); margin:14pt 0; }
+  .sc{ font-variant:small-caps; letter-spacing:.03em; color:var(--muted); }
+  svg text{ font-family:"Segoe UI",Arial,sans-serif; }
+  .foot{ color:var(--muted); font-size:8.4pt; }
+  .toc{ font-size:10pt; } .toc li{ margin:2pt 0; } .toc a{ color:var(--body); }
+  .term{ font-weight:600; color:var(--ink); }
+</style>
+</head>
+<body>
+
+<!-- ============ COVER ============ -->
+<section class="cover">
+  <div class="cover-top">
+    <span>Universal Traveler · P25-GPS-Decode</span>
+    <span>Receive-only · the radio is never transmitted to</span>
+  </div>
+  <div class="cover-mid">
+    <h1>Pulling GPS<br>From Thin Air</h1>
+    <div class="cover-sub">The complete story of decoding a P25 radio's location over the air — and the battery box that puts it on a map.</div>
+    <div class="cover-sub2">Told plainly. Every term explained. Written the night it finally worked end to end.</div>
+    <div class="abstract">
+      <b>What happened</b>
+      A firefighter's radio already knows where it is. On 23 November 2026, a $40 battery router read that
+      position <em>straight out of the airwaves</em> — no cooperation from the radio, no expensive receiver —
+      decoded it in software, and drew it live on an offline map, next to the box's own location, with nothing
+      installed on the phone or laptop looking at it. This is the story of how, and what every piece of it means.
+    </div>
+  </div>
+  <div class="cover-meta">
+    <span>Jim Gaddy · with Claude &amp; a team of agents</span>
+    <span>Status: proven live on the box · 2026-11-23</span>
+  </div>
+</section>
+
+<!-- ============ ORIENTATION ============ -->
+<h2>What we set out to do</h2>
+
+<p class="lede">Every modern public-safety radio has a GPS chip in it. It knows its own latitude and longitude to a
+few feet. The problem has never been <em>knowing</em> the location — the problem is <em>getting it out</em>, to a
+map, where a commander can see where every crew is.</p>
+
+<p>Today there are only two ways to see those positions. One: pay the radio manufacturer for their whole location
+system — their radios, their servers, their software, their rules. Two: have one special "base" radio physically
+wired to a computer, which unwraps the positions and hands them over. Jim's earlier work — <strong>The Lookout</strong>
+and the <strong>P25 GPS Tracker</strong> — used that second path, leaning on a cooperating base radio that
+de-frames the GPS and squirts it out over a USB cable.</p>
+
+<p>This project removes that dependency entirely. The goal, in Jim's words: <em>"break free from the BK base into
+the entire world of P25."</em> If we can pull the location out of the <strong>radio signal itself</strong>, off the
+air, then <strong>any</strong> fleet, from <strong>any</strong> manufacturer, becomes visible from nothing more than
+a cheap receiver and a sound card. No cooperation. No permission. No cloud.</p>
+
+<div class="plain">
+  <div class="plain-h">In plain terms</div>
+  We are not asking the radio for anything. We are listening to the same transmission any scanner hears, and doing
+  in software what a $10,000 dispatch console does — pulling the GPS out of it. The radio never knows we're there;
+  we only ever <em>receive</em>.
+</div>
+
+<h3>Why it's even possible</h3>
+<p>P25 location rides on an <strong>open, published standard</strong> — <span class="term">Tier 1 Location
+Services</span> (the industry spec <code>TIA-102.BAJB-A</code>). The position is carried as a plain line of
+<span class="term">NMEA</span> text — the same universal GPS sentence format a boat plotter or a phone uses —
+tucked inside a P25 <strong>data</strong> message. That last word matters: it is <em>data</em>, not
+<em>voice</em>. Decoding P25 voice requires a patented vocoder chip (the part that turns digital back into
+speech). Decoding data needs none of that. We throw the voice away and keep the data, so there is no vocoder,
+no patent, nothing proprietary in our path.</p>
+
+<div class="plain">
+  <div class="plain-h">NMEA, plainly</div>
+  A GPS position written as text looks like this: <code>$GPGGA,211707.00,3023.6294,N,08156.2588,W,1,12,0.68,29.6,M,…*4A</code>.
+  That one line says: at 21:17:07 UTC, I'm at 30°23.6294′ North, 081°56.2588′ West, with 12 satellites. Every GPS
+  device on earth speaks this. Our whole job is to recover that one line from a radio burst.
+</div>
+
+<div class="callout key">
+  <div class="callout-h">The honesty hook that made it provable</div>
+  Jim had a secret weapon for proving it: his BK base <em>also</em> hands over the finished NMEA for the very same
+  transmission, over its cable. So we always had the right answer in hand. Decoding the air then became a
+  <strong>known-plaintext attack</strong> — decode the signal, and diff our answer against the base's, letter for
+  letter. The test was not "does it look right," it was "is it <em>identical</em>: same position <strong>and</strong>
+  same radio ID." Nothing to fool ourselves with.
+</div>
+
+<!-- ============ THE JOURNEY OF ONE POSITION ============ -->
+<h2>What is actually flying through the air</h2>
+
+<p>To reverse something, you first have to know how it was built. Here is the journey one position takes, from the
+radio's GPS chip out into the air — and the mirror-image path we run to get it back.</p>
+
+<figure>
+<svg viewBox="0 0 900 300" role="img" aria-label="The radio builds a transmission in four steps and we reverse them">
+  <defs>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#0b6e99"/>
+    </marker>
+    <marker id="arb" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#1f7a4d"/>
+    </marker>
+  </defs>
+  <!-- top row: the radio builds it -->
+  <text x="12" y="28" font-size="12" font-weight="700" fill="#14212b">The radio builds the transmission →</text>
+  <g font-size="10.5" fill="#14212b">
+    <rect x="12"  y="40" width="150" height="46" rx="4" fill="#eef3f5" stroke="#c7d2d8"/>
+    <text x="87"  y="60" text-anchor="middle" font-weight="600">GPS position</text>
+    <text x="87"  y="76" text-anchor="middle" fill="#5a6a74">lat / lon</text>
+    <rect x="196" y="40" width="150" height="46" rx="4" fill="#eef3f5" stroke="#c7d2d8"/>
+    <text x="271" y="60" text-anchor="middle" font-weight="600">NMEA text line</text>
+    <text x="271" y="76" text-anchor="middle" fill="#5a6a74">$GPGGA,… + radio ID</text>
+    <rect x="380" y="40" width="150" height="46" rx="4" fill="#eef3f5" stroke="#c7d2d8"/>
+    <text x="455" y="60" text-anchor="middle" font-weight="600">P25 data packet</text>
+    <text x="455" y="76" text-anchor="middle" fill="#5a6a74">wrapped + protected</text>
+    <rect x="564" y="40" width="150" height="46" rx="4" fill="#eef3f5" stroke="#c7d2d8"/>
+    <text x="639" y="60" text-anchor="middle" font-weight="600">C4FM tones</text>
+    <text x="639" y="76" text-anchor="middle" fill="#5a6a74">4 levels, 4800/sec</text>
+    <rect x="748" y="40" width="140" height="46" rx="4" fill="#0f1b24"/>
+    <text x="818" y="60" text-anchor="middle" font-weight="600" fill="#fff">Radio waves</text>
+    <text x="818" y="76" text-anchor="middle" fill="#9db6c6">out the antenna</text>
+  </g>
+  <line x1="162" y1="63" x2="194" y2="63" stroke="#0b6e99" stroke-width="1.6" marker-end="url(#ar)"/>
+  <line x1="346" y1="63" x2="378" y2="63" stroke="#0b6e99" stroke-width="1.6" marker-end="url(#ar)"/>
+  <line x1="530" y1="63" x2="562" y2="63" stroke="#0b6e99" stroke-width="1.6" marker-end="url(#ar)"/>
+  <line x1="714" y1="63" x2="746" y2="63" stroke="#0b6e99" stroke-width="1.6" marker-end="url(#ar)"/>
+
+  <!-- the air -->
+  <text x="450" y="150" text-anchor="middle" font-size="10.5" fill="#5a6a74" font-style="italic">· · ·  across the air  · · ·</text>
+
+  <!-- bottom row: we reverse it -->
+  <text x="12" y="200" font-size="12" font-weight="700" fill="#1f7a4d">← We run it backwards in software</text>
+  <g font-size="10.5" fill="#14212b">
+    <rect x="748" y="214" width="140" height="46" rx="4" fill="#0f1b24"/>
+    <text x="818" y="234" text-anchor="middle" font-weight="600" fill="#fff">Receiver</text>
+    <text x="818" y="250" text-anchor="middle" fill="#9db6c6">detector audio</text>
+    <rect x="564" y="214" width="150" height="46" rx="4" fill="#eefaf2" stroke="#bfe3cf"/>
+    <text x="639" y="234" text-anchor="middle" font-weight="600">Sound card</text>
+    <text x="639" y="250" text-anchor="middle" fill="#5a6a74">the wobble → numbers</text>
+    <rect x="380" y="214" width="150" height="46" rx="4" fill="#eefaf2" stroke="#bfe3cf"/>
+    <text x="455" y="234" text-anchor="middle" font-weight="600">Decode chain</text>
+    <text x="455" y="250" text-anchor="middle" fill="#5a6a74">tones → bits → text</text>
+    <rect x="196" y="214" width="150" height="46" rx="4" fill="#eefaf2" stroke="#bfe3cf"/>
+    <text x="271" y="234" text-anchor="middle" font-weight="600">Clean NMEA</text>
+    <text x="271" y="250" text-anchor="middle" fill="#5a6a74">position + ID back</text>
+    <rect x="12"  y="214" width="150" height="46" rx="4" fill="#0b6e99"/>
+    <text x="87"  y="234" text-anchor="middle" font-weight="600" fill="#fff">On the map</text>
+    <text x="87"  y="250" text-anchor="middle" fill="#cfe4ef">a dot, live</text>
+  </g>
+  <line x1="746" y1="237" x2="716" y2="237" stroke="#1f7a4d" stroke-width="1.6" marker-end="url(#arb)"/>
+  <line x1="562" y1="237" x2="532" y2="237" stroke="#1f7a4d" stroke-width="1.6" marker-end="url(#arb)"/>
+  <line x1="378" y1="237" x2="348" y2="237" stroke="#1f7a4d" stroke-width="1.6" marker-end="url(#arb)"/>
+  <line x1="194" y1="237" x2="164" y2="237" stroke="#1f7a4d" stroke-width="1.6" marker-end="url(#arb)"/>
+</svg>
+<div class="fig-cap">The radio builds a transmission in four steps (top). We undo each one (bottom) to get the position back.</div>
+</figure>
+
+<p>Walking the top row: the GPS chip produces a position; the radio writes it as an NMEA text line and stamps it with
+its own <strong>individual ID</strong> (every radio has a unique number — Jim's fleet runs IDs like
+<code>9076802</code>); it wraps that text in a P25 data packet with error-protection around it; it converts the
+packet's bits into a pattern of four radio tones called <span class="term">C4FM</span>; and it transmits. Our job
+is the bottom row — undo all four steps.</p>
+
+<div class="plain">
+  <div class="plain-h">C4FM and "symbols," plainly</div>
+  Digital radio can't send 1s and 0s directly — it sends <em>tones</em>. P25 uses four tones (nudging the frequency
+  up a lot, up a little, down a little, down a lot). Each tone carries two bits, so one tone = one
+  <span class="term">symbol</span> (also called a <em>dibit</em>, "two bits"). The radio sends <strong>4,800 of
+  these tones every second</strong>. Reading the message means figuring out, 4,800 times a second, which of the four
+  tones is on the air right now.
+</div>
+
+<!-- ============ THE TAP ============ -->
+<h2>Where we listen — and why no special radio is needed</h2>
+
+<p>Here is the quiet trick at the center of this whole project. Inside <em>any</em> FM receiver — a scanner, a
+mobile radio, a handheld — there is a point, right after the radio "demodulates" the signal, where the recovered
+information exists as a plain wobbling voltage. That voltage <em>is</em> the four-tone C4FM pattern, before the
+radio does anything digital with it. It is called the <span class="term">discriminator</span> output, or
+<span class="term">detector audio</span>. On a Kenwood NX-700 it comes out on pin 19 of the accessory connector
+(the "DEO" pin); on a BK portable it's a test point inside.</p>
+
+<p>That wobble is exactly what we need. We feed it into a <strong>PC sound card</strong> — the same jack you'd plug
+a microphone into — and the sound card turns the wobble into a stream of numbers, 48,000 of them per second. From
+there it's all software.</p>
+
+<div class="plain">
+  <div class="plain-h">Why this matters — and what an "SDR" is</div>
+  Almost everyone who decodes P25 uses a <span class="term">software-defined radio</span> (SDR) — a special
+  gadget that captures raw radio waves and does the demodulation itself in software. We use <strong>no SDR</strong>.
+  We let an ordinary radio do the hard RF work it was built to do, and we tap the audio it already produces. A $20
+  sound card replaces a radio lab. That is a big part of what makes this cheap, simple, and copyable.
+</div>
+
+<div class="callout">
+  <div class="callout-h">Sound-card settings that matter</div>
+  Capture in <strong>mono, 16-bit, at 48,000 samples per second</strong>. 48k is better than 44.1k here because it
+  gives a clean, whole <strong>10 samples per tone</strong> (48000 ÷ 4800 = 10 exactly), so nothing has to be
+  resampled. Set the radio to <strong>WIDE</strong> and leave the squelch open. Turn off every Windows "audio
+  enhancement." The tap is <em>detector</em> audio, not the speaker audio — speaker audio has been filtered for your
+  ears and the fine detail is gone.
+</div>
+
+<!-- ============ THE DECODE CHAIN ============ -->
+<h2>Turning the wobble back into a sentence</h2>
+
+<p>This is the heart of it — the chain that takes 48,000 numbers a second and gives back one line of GPS text. It
+runs in stages, each undoing one thing the radio did. Below, each stage in plain terms, then the precise fact.</p>
+
+<figure>
+<svg viewBox="0 0 900 120" role="img" aria-label="The decode chain, seven stages from detector audio to NMEA">
+  <defs>
+    <marker id="a2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0b6e99"/></marker>
+  </defs>
+  <g font-size="10" fill="#14212b" text-anchor="middle">
+    <rect x="6"   y="34" width="104" height="48" rx="4" fill="#0f1b24"/>
+    <text x="58"  y="55" fill="#fff" font-weight="600">Detector</text><text x="58" y="70" fill="#9db6c6">audio in</text>
+    <rect x="128" y="34" width="104" height="48" rx="4" fill="#eef3f5" stroke="#c7d2d8"/>
+    <text x="180" y="55" font-weight="600">Find burst</text><text x="180" y="70" fill="#5a6a74">squelch</text>
+    <rect x="250" y="34" width="104" height="48" rx="4" fill="#eef3f5" stroke="#c7d2d8"/>
+    <text x="302" y="55" font-weight="600">Read tones</text><text x="302" y="70" fill="#5a6a74">MMSE loop</text>
+    <rect x="372" y="34" width="104" height="48" rx="4" fill="#eef3f5" stroke="#c7d2d8"/>
+    <text x="424" y="55" font-weight="600">Find start</text><text x="424" y="70" fill="#5a6a74">frame sync</text>
+    <rect x="494" y="34" width="104" height="48" rx="4" fill="#eef3f5" stroke="#c7d2d8"/>
+    <text x="546" y="55" font-weight="600">Read label</text><text x="546" y="70" fill="#5a6a74">NID / BCH</text>
+    <rect x="616" y="34" width="104" height="48" rx="4" fill="#eef3f5" stroke="#c7d2d8"/>
+    <text x="668" y="55" font-weight="600">Fix errors</text><text x="668" y="70" fill="#5a6a74">Viterbi</text>
+    <rect x="738" y="34" width="104" height="48" rx="4" fill="#1f7a4d"/>
+    <text x="790" y="55" fill="#fff" font-weight="600">NMEA</text><text x="790" y="70" fill="#cfe9d9">out</text>
+  </g>
+  <g stroke="#0b6e99" stroke-width="1.6">
+    <line x1="110" y1="58" x2="126" y2="58" marker-end="url(#a2)"/>
+    <line x1="232" y1="58" x2="248" y2="58" marker-end="url(#a2)"/>
+    <line x1="354" y1="58" x2="370" y2="58" marker-end="url(#a2)"/>
+    <line x1="476" y1="58" x2="492" y2="58" marker-end="url(#a2)"/>
+    <line x1="598" y1="58" x2="614" y2="58" marker-end="url(#a2)"/>
+    <line x1="720" y1="58" x2="736" y2="58" marker-end="url(#a2)"/>
+  </g>
+</svg>
+<div class="fig-cap">The decode chain. The DSP/error-correction stages are ported verbatim from the open-source OP25 project; the two original additions here are the squelch and the full error-correction (Viterbi) step.</div>
+</figure>
+
+<h3>Stage 1 — Finding the burst, by listening for silence</h3>
+<p><strong>In plain terms:</strong> a GPS message only lasts about half a second, and they arrive maybe once every
+ten seconds. The rest of the time the channel is just noise. We shouldn't run the expensive decoding on noise — we
+need a cheap way to notice when a burst starts. The insight that cracked this (Jim's) is counter-intuitive: on an
+open radio channel, the noise is <em>loud and hissy</em>, and when a signal captures the receiver, the hiss suddenly
+<strong>drops</strong>. This is called <span class="term">FM quieting</span>. <em>A P25 burst is a hole in the
+noise, not a spike in it.</em></p>
+<p><strong>Precisely:</strong> we measure the high-frequency "hiss energy" of the audio with a dirt-cheap
+calculation (the average squared change from one sample to the next — about three operations per sample) and open
+the gate when that energy falls far below the running noise floor. Idle through hours of dead air costs almost
+nothing. An older approach that tried to measure signal energy <em>continuously</em> overwhelmed the little router
+instantly; watching for the quiet is what let the whole thing run on a $40 box.</p>
+
+<div class="callout">
+  <div class="callout-h">A landmine we paid for once</div>
+  When the gate opens, we must hand the decoder a <strong>fixed-length slice</strong> of audio measured from the
+  burst's start (we grab from 0.35&nbsp;s before the onset through 1.4&nbsp;s total). An earlier version cut the slice
+  when the "quiet" ended — which chopped the burst in half and garbled the result. The rule: once you find the start,
+  take a fixed window; never trust the end.
+</div>
+
+<h3>Stage 2 — Reading the four tones (the "eye")</h3>
+<p><strong>In plain terms:</strong> the four tones don't arrive crisp. They're smeared together, they drift in
+loudness, and the whole thing wanders slowly up and down (a DC drift). To tell the four levels apart cleanly, the
+software has to lock onto three things at once: the <em>rhythm</em> (when exactly each tone starts), the
+<em>loudness</em> (so the four levels sit where expected), and the <em>drift</em> (cancel the slow wander). When it
+locks, the four levels separate into clean bands — engineers call that clean picture an <span class="term">eye
+diagram</span>, because the gap between bands looks like an open eye.</p>
+<p><strong>Precisely:</strong> this is a faithful port of OP25's <code>tracking_loop_mmse</code> symbol recovery. A
+naïve fixed ruler gave about 15% tone errors — hopeless. The tracking loop uses a 129×8 interpolation table to find
+the exact sub-sample timing of each tone, an automatic level control to hold the four levels at their nominals, and
+a slow integrator to null residual DC once it locks. Then each tone is sliced at fixed thresholds into its two bits.</p>
+
+<div class="callout">
+  <div class="callout-h">The single biggest mistake of the whole build — and the fix</div>
+  Early on, the tones decoded badly and there was an odd distortion right at each burst's start. I blamed the
+  <em>capture hardware</em> — a "DC transient" from the radio. I was wrong. The real cause was a crude filter I had
+  hand-written and bolted onto the front of the chain. The captures were always clean. Deleting my filter and
+  dropping in OP25's exact, proven front-end filter is what made the whole thing fall out correctly. <strong>Lesson,
+  earned twice this project: when the hardware hands you a stable, correct signal, suspect your own code, not the
+  radio.</strong>
+</div>
+
+<h3>Stage 3 — Finding where the message begins (frame sync)</h3>
+<p><strong>In plain terms:</strong> we now have a river of bits, but we don't know where a message starts. P25
+solves this the way a telegraph does: every message begins with a fixed, agreed-upon <strong>magic pattern</strong>.
+We slide along the bit-stream until we see that pattern, and now we know we're aligned.</p>
+<p><strong>Precisely:</strong> the P25 <span class="term">frame sync</span> is the 48-bit word
+<code>0x5575F5FF77FF</code>. We shift each tone into a running accumulator and declare a match when it differs from
+the magic word in at most 6 bit positions (its <span class="term">Hamming distance</span> — simply the count of
+disagreeing bits — is ≤ 6, which tolerates a few tone errors without missing a real sync).</p>
+
+<h3>Stage 4 — Reading the address label (the NID)</h3>
+<p><strong>In plain terms:</strong> right after the start marker comes a small header that says which radio system
+this is and what <em>kind</em> of message follows. It's protected by an error-correcting code so a few flipped bits
+can be repaired, not just detected.</p>
+<p><strong>Precisely:</strong> the <span class="term">NID</span> (Network ID) is read from the frame bits, skipping
+two "status" bits the radio periodically injects, and decoded with a <span class="term">BCH</span> error-correcting
+code — accepting the result only if ≤ 4 bit-errors were corrected. It yields the <span class="term">NAC</span>
+(the system's color-code; Jim's reads <code>0x455</code>) and the <span class="term">DUID</span> (the message type;
+<code>0xC</code> means a Packet Data Unit — exactly what carries GPS).</p>
+
+<h3>Stage 5 — The payload, and fixing its errors (the win)</h3>
+<p><strong>In plain terms:</strong> now the actual GPS text, chopped into protected blocks. P25 scrambles and
+error-codes the data so it survives a noisy channel. Unscrambling is routine; the error-correction is where the
+project was nearly lost — and then won.</p>
+<p><strong>Precisely:</strong> Tier-1 location rides in an <strong>Unconfirmed Data Packet</strong>, Location Service
+(the packet header is format <code>0x15</code>, service access point <code>0x30</code>) — direct NMEA, not the
+internet-style framing some systems use. Its data blocks are protected by a <span class="term">rate-1/2
+convolutional code</span>. OP25's built-in decoder walks that code <em>greedily</em> — picking the best-looking
+choice symbol by symbol — and <strong>hard-fails on a tie</strong>. A few stray tone errors scattered through a
+block create a tie, and the whole block is lost. On Jim's capture, greedy recovered only <strong>4 of 12
+blocks</strong> — no usable sentence.</p>
+
+<div class="callout key">
+  <div class="callout-h">The decode win</div>
+  A convolutional code's <em>correct</em> decoder is not greedy — it's the <span class="term">Viterbi
+  algorithm</span>, which, instead of guessing each step, finds the single most-likely <strong>whole path</strong>
+  through the data at once. Think of reading a smudged sentence: rather than forcing each letter in isolation, you
+  pick the most likely <em>sentence</em> that fits all the smudges together. We added a proper Viterbi decoder for
+  the 1/2-rate blocks (the same kind of optimal decoder OP25 already uses elsewhere). It recovered
+  <strong>12 of 12 blocks — the complete sentence</strong> — where greedy got 4. That single change turned a pile of
+  fragments into a clean position.
+</div>
+
+<p>Out of this stage comes the GPS text and the transmitting radio's ID — and a lovely, unforgeable detail: the
+block header carries the radio's own address, which for Jim's unit reads <code>8A 80 42</code> = <code>9076802</code>.
+The decode isn't just producing <em>a</em> position — it's proving <em>whose</em> radio it read.</p>
+
+<!-- ============ PROOF ============ -->
+<h2>Proving it was real</h2>
+
+<p>This is where the answer key earned its keep. For each burst, we lined our over-the-air decode up against the BK
+base's own NMEA for the identical transmission:</p>
+
+<div class="codeblock"><span class="c"># our decode, straight off the air:</span>
+OTA:  $GNGGA,174713.00,3023.63049,N,08156.25802,W,1,08,1.47,24.5,M,-31.1,M,,*4D   $PP25,9076802,*35
+<span class="c"># the base's answer key, same transmission:</span>
+KEY:  $GNGGA,174713.00,3023.63049,N,08156.25802,W,1,08,1.47,24.5,M,-31.1,M,,*4D   $PP25,9076802,*35</div>
+
+<p>Identical — the time, the latitude and longitude, the satellite count, the altitude, the checksum, and the
+radio-ID line. Every field. On a clean capture of 10 bursts, we decoded <strong>10 of 10</strong>, with position
+<strong>and</strong> unit ID exact on every one. Two independent, unforgeable facts per burst: <em>where</em> and
+<em>which radio</em>. That is proof, not a hunch.</p>
+
+<div class="callout">
+  <div class="callout-h">The honest caveat we kept</div>
+  An earlier, rougher capture decoded only 6 of 11 bursts. We chased it and found the misses were a
+  <strong>signal problem, not a decoder problem</strong>: a contiguous ~30-second stretch of that recording was
+  genuinely degraded (every burst before and after it decoded perfectly). A clean capture clears them, which the
+  10/10 run confirmed. We never papered over the misses; we proved their cause.
+</div>
+
+<!-- ============ THE AGENTS ============ -->
+<h2>The agents, the dead ends, the honest road</h2>
+
+<p>This was not a straight line, and it was not one mind. The decode was built with a team of agents working the
+problem in parallel, and the path was littered with wrong turns we kept — because the wrong turns are the map for
+the next person.</p>
+<ul>
+  <li><strong>The search-first rule paid the rent.</strong> Rather than hand-roll a P25 decoder from scratch, we
+    stood on the open-source <strong>OP25</strong> project (and its forks). The hard, proven DSP and
+    error-correction math is OP25's, ported verbatim. Our original contributions are narrow and surgical: the
+    noise-quieting squelch, the Viterbi step, the acquisition logic, and everything that put it on a box.</li>
+  <li><strong>The hand-rolled filter.</strong> My own front-end filter was the villain behind the "hardware
+    transient" (above). Replacing it with OP25's real filter was the turning point.</li>
+  <li><strong>Greedy vs. Viterbi.</strong> Accepting OP25's greedy block decoder cost us most of the sentence until
+    Viterbi replaced it.</li>
+  <li><strong>Energy detection vs. the noise hole.</strong> Trying to find bursts by their <em>energy</em> found
+    nothing (the noise is louder than the signal). Watching for the quiet found every one.</li>
+  <li><strong>The walled sources.</strong> Several key P25 references (the OP25 wiki among them) block automated
+    reading. Jim pulled them up in his own browser, saved them to files, and handed them over so they could be read
+    in full. That is how we got the exact slicer table and the frame-sync magic word. Human and agent, hands and
+    eyes, one team.</li>
+</ul>
+
+<!-- ============ ONTO THE BOX ============ -->
+<h2>From a decode on a laptop to a box in a backpack</h2>
+
+<p>Decoding on a powerful PC was the first mountain. The real goal was a <strong>self-contained appliance</strong> —
+a battery-powered box that does everything itself, with no PC in the field. That meant moving the whole decoder onto
+a $40 travel router (a GL-MT3000), and it surfaced three hard problems, each worth understanding.</p>
+
+<h3>Problem 1 — the box has no math libraries</h3>
+<p><strong>In plain terms:</strong> the PC decoder leaned on two big scientific-math packages (<code>numpy</code>
+and <code>scipy</code>) that simply don't exist for this little router. So the entire decoder had to be
+<strong>rewritten in plain Python</strong>, using nothing but what ships in the language itself.</p>
+<p><strong>Precisely:</strong> plain Python is perhaps 20× slower than the math libraries, which sounds fatal. It
+isn't, because of the squelch: the box idles almost for free and only does the heavy work during a ~half-second
+burst, and bursts are ten seconds apart. Measured, the stdlib decoder runs at roughly <strong>half of real-time on
+the router's ARM chip</strong> — comfortably fast enough, with margin.</p>
+
+<h3>Problem 2 — Python can only do one heavy thing at a time (the GIL)</h3>
+<p><strong>In plain terms:</strong> Python has a rule (the <span class="term">GIL</span>) that lets only one piece
+of heavy work run at a time. While the box was busy decoding a burst for a couple of seconds, it stopped emptying
+the sound card's little bucket of incoming audio — the bucket overflowed, and the next burst or two were lost.</p>
+<p><strong>Precisely:</strong> the fix is a tiny helper whose <em>only</em> job is to scoop raw bytes out of the
+sound card's pipe and drop them in a queue — a job so trivial it doesn't hold the GIL. All the real work (and the
+decode) happens downstream, which now has idle time between bursts to catch up. The pipe stays empty; no overflow;
+consecutive bursts caught.</p>
+
+<h3>Problem 3 — the sound card and the map drive wouldn't share the box</h3>
+<p><strong>In plain terms:</strong> the box has to run three USB things at once — the sound card (to hear the
+radio), an SSD (to hold the offline maps), and a GPS puck (for the box's own location) — all through one little USB
+hub. On the router's original software, plugging in the sound card and the map drive together was <em>refused</em>:
+the system wrongly thought there wasn't enough USB bandwidth for both.</p>
+<p><strong>Precisely:</strong> this is a known bug in the older Linux <span class="term">kernel</span> (the core
+software that runs the hardware) — specifically in how the MediaTek USB scheduler accounts for devices behind a hub.
+Jim refused the cheap workaround (crippling the sound-card quality to fit). The <em>right</em> fix is a newer kernel
+(6.6) where the bug is repaired. We moved the box to that firmware (OpenWrt 24.10), and all three devices now share
+the hub cleanly — proven on real hardware. That was the entire hardware risk of the project, and it's gone.</p>
+
+<!-- ============ THE APPLIANCE ============ -->
+<h2>From a position to a map a crew can use</h2>
+
+<p>A decoded position is still just text. The last stretch turns it into something a firefighter opens on a phone.</p>
+
+<p>The clever part is a non-event: the box's decoder is built to emit the <strong>exact same NMEA the BK base used
+to send</strong>, on the same network port. So the map software — already proven on The Lookout — reads it
+<em>unchanged</em>. The over-the-air decoder is a <strong>drop-in replacement</strong> for the cooperating base; the
+map can't tell the difference. (Along the way we tidy the decoder's output: force the standard GPS prefix and
+recompute the checksum, so a stray bit in the label can never hand the map a bad line, while the position and ID
+pass through exactly as decoded.)</p>
+
+<figure>
+<svg viewBox="0 0 900 250" role="img" aria-label="The box architecture: three USB devices, three services, any browser">
+  <defs><marker id="a3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0b6e99"/></marker></defs>
+  <!-- USB devices -->
+  <g font-size="10" fill="#14212b" text-anchor="middle">
+    <text x="95" y="24" font-size="11" font-weight="700">On the powered hub</text>
+    <rect x="20" y="36" width="150" height="38" rx="4" fill="#0f1b24"/><text x="95" y="60" fill="#fff">Sound card ← radio</text>
+    <rect x="20" y="86" width="150" height="38" rx="4" fill="#0f1b24"/><text x="95" y="110" fill="#fff">Map SSD</text>
+    <rect x="20" y="136" width="150" height="38" rx="4" fill="#0f1b24"/><text x="95" y="160" fill="#fff">Garmin GPS puck</text>
+  </g>
+  <!-- services -->
+  <g font-size="10" fill="#14212b" text-anchor="middle">
+    <text x="450" y="24" font-size="11" font-weight="700">Three small programs on the box</text>
+    <rect x="300" y="36" width="300" height="48" rx="4" fill="#eef3f5" stroke="#c7d2d8"/>
+    <text x="450" y="56" font-weight="600">ut_bridge — decode the air</text>
+    <text x="450" y="72" fill="#5a6a74">squelch → decode → clean NMEA on port 10110</text>
+    <rect x="300" y="96" width="300" height="48" rx="4" fill="#eef3f5" stroke="#c7d2d8"/>
+    <text x="450" y="116" font-weight="600">units_kml — the map server</text>
+    <text x="450" y="132" fill="#5a6a74">offline tiles + live dots on port 8088</text>
+    <rect x="300" y="156" width="300" height="38" rx="4" fill="#eef3f5" stroke="#c7d2d8"/>
+    <text x="450" y="179" fill="#5a6a74">(the box's own Garmin fix folds in as "you are here")</text>
+  </g>
+  <!-- viewers -->
+  <g font-size="10" fill="#14212b" text-anchor="middle">
+    <text x="800" y="24" font-size="11" font-weight="700">Any screen</text>
+    <rect x="720" y="60" width="160" height="40" rx="4" fill="#0b6e99"/><text x="800" y="84" fill="#fff">Phone browser</text>
+    <rect x="720" y="112" width="160" height="40" rx="4" fill="#0b6e99"/><text x="800" y="136" fill="#fff">Laptop / tablet</text>
+    <text x="800" y="172" font-size="9" fill="#5a6a74">nothing installed</text>
+  </g>
+  <g stroke="#0b6e99" stroke-width="1.6">
+    <line x1="170" y1="55" x2="298" y2="58" marker-end="url(#a3)"/>
+    <line x1="170" y1="105" x2="298" y2="116" marker-end="url(#a3)"/>
+    <line x1="170" y1="155" x2="298" y2="172" marker-end="url(#a3)"/>
+    <line x1="600" y1="100" x2="718" y2="82" marker-end="url(#a3)"/>
+    <line x1="600" y1="120" x2="718" y2="130" marker-end="url(#a3)"/>
+  </g>
+</svg>
+<div class="fig-cap">The whole appliance. Three USB devices, three small stdlib-Python programs, offline maps on the SSD, and any browser as the screen. No internet, no cloud, no install on the viewer.</div>
+</figure>
+
+<p>The map itself is a <strong>locked split-screen</strong> — satellite on top, street below, same place — drawn
+from offline map tiles on the SSD, with the live radio dots and the box's own position riding on both halves. It
+opens in any browser at the box's address; a printed QR sticker on the box lets a crew scan straight to it.</p>
+
+<div class="callout">
+  <div class="callout-h">"You are here" — and a decision worth recording</div>
+  The box carries its own GPS puck (a Garmin, read directly over USB) so it can show its own location. The Garmin
+  reports a confidence flag with each fix. My code originally refused any fix below the "full lock" level — and threw
+  away a perfectly good, stable, correct position the puck was reporting at a lower confidence, exactly the degraded
+  fix a firefighter gets indoors or under tree cover. Jim caught it. We changed the rule to <strong>trust a usable
+  position</strong> (rejecting only a fix the GPS itself flags as integrity-failed), because a labeled, imperfect
+  position beats no position when someone needs to be found. The domain expert overruled the arbitrary threshold —
+  correctly.
+</div>
+
+<!-- ============ THE MANAGER ============ -->
+<h2>One button turns a bare box into this</h2>
+
+<p>None of it is useful to a crew if standing it up takes an engineer. So the last piece is the <strong>Universal
+Traveler Manager</strong> — a PC app that turns a factory-fresh router into a finished Universal Traveler in one
+click: it checks the box is on the right firmware (and can flash it there), installs the handful of system packages,
+streams every program onto the box, installs the boot services so everything comes back after a power-cycle, and
+then <strong>actually verifies the map draws and a position is listening</strong> — not merely that "a program is
+running." A box provisioned this way survives being unplugged and powered back on with no one at a keyboard, which
+we proved with a cold power-pull.</p>
+
+<!-- ============ WHERE IT STANDS ============ -->
+<h2>Where it stands — and what it means</h2>
+
+<p>As of 23 November 2026 the whole chain is proven, live, on the box: a P25 fleet radio decoded <em>off the air by
+the box itself</em> and plotted on the offline split-screen map, next to the box's own position, with nothing on the
+viewing phone — no PC, no cooperating base, no internet.</p>
+
+<p>And the thing worth sitting with: <strong>outside the radio manufacturers, there is no public precedent we can
+find for this.</strong> Everyone else decoding P25 off the air uses a software-defined radio and is after
+<em>voice</em>; the rare location work targets one manufacturer's <em>proprietary</em> format and is an ongoing,
+partial reverse-engineering effort. Standardized Tier-1 location is so new the industry only recently began writing
+its formal specification. Pulling that standardized GPS from the air, with no SDR, off plain detector audio, and
+plotting it live on a self-contained battery box — the public record shows no one has done it this way. We won't
+claim an absolute first, because we can't see every private lab. But searched and checked: no one has shown this
+done the way it was just done here.</p>
+
+<p>The point of all of it is small and human. A commander will be able to open a map and see where the crews are —
+from any P25 fleet, on a box that costs less than dinner, with no permission from anyone. For the people who run into
+the places everyone else runs out of, being findable is not a feature. It's the whole thing.</p>
+
+<!-- ============ GLOSSARY ============ -->
+<h2>Glossary — every term, plainly</h2>
+
+<table>
+  <caption>The jargon in this document, in plain words.</caption>
+  <tr><th style="width:26%">Term</th><th>What it means</th></tr>
+  <tr><td class="term">NMEA</td><td>The universal text format for a GPS position, e.g. <code>$GPGGA,…</code>. Every GPS device speaks it. Recovering one NMEA line is the goal.</td></tr>
+  <tr><td class="term">P25</td><td>Project 25 — the digital two-way radio standard used by most U.S. public safety agencies.</td></tr>
+  <tr><td class="term">Tier 1 Location</td><td>The open, published P25 standard (<code>TIA-102.BAJB-A</code>) for carrying GPS position as NMEA over the radio. Any manufacturer can implement it.</td></tr>
+  <tr><td class="term">Discriminator / detector audio</td><td>The raw, demodulated wobble inside any FM receiver — the four-tone pattern before the radio digitizes it. Our tap point. (NX-700 pin 19 "DEO"; BK internal test point.)</td></tr>
+  <tr><td class="term">SDR (software-defined radio)</td><td>A device that captures raw radio waves and demodulates in software. What everyone else uses — and what we deliberately do <em>not</em> need.</td></tr>
+  <tr><td class="term">C4FM</td><td>The four-tone modulation P25 uses. Four frequency steps, each carrying two bits.</td></tr>
+  <tr><td class="term">Symbol / dibit</td><td>One of the four tones = one symbol = two bits ("dibit"). P25 sends 4,800 per second.</td></tr>
+  <tr><td class="term">Baud</td><td>Symbols per second. P25 is 4,800 baud.</td></tr>
+  <tr><td class="term">FM quieting</td><td>The effect where a captured FM signal makes the receiver's background hiss drop. It's why a burst is a <em>hole</em> in the noise.</td></tr>
+  <tr><td class="term">Squelch</td><td>The gate that decides "signal present." Here, it opens when the hiss goes quiet.</td></tr>
+  <tr><td class="term">Eye diagram</td><td>The picture of cleanly-separated signal levels. An "open eye" means the tones are being read cleanly.</td></tr>
+  <tr><td class="term">MMSE loop</td><td>The symbol-recovery algorithm (from OP25) that locks onto timing, level, and DC drift so the four tones read cleanly.</td></tr>
+  <tr><td class="term">Frame sync</td><td>A fixed magic bit-pattern (<code>0x5575F5FF77FF</code>) at the start of every P25 frame, used to find where a message begins.</td></tr>
+  <tr><td class="term">Hamming distance</td><td>The number of bit positions in which two patterns differ. A small distance to the magic word = a match despite a few errors.</td></tr>
+  <tr><td class="term">NID / NAC / DUID</td><td>The frame's little header: NID is the whole thing; NAC is the system's color-code (<code>0x455</code> here); DUID is the message type (<code>0xC</code> = data packet).</td></tr>
+  <tr><td class="term">BCH</td><td>An error-correcting code protecting the header — fixes a few flipped bits, not just detects them.</td></tr>
+  <tr><td class="term">PDU</td><td>Packet Data Unit — the data message that carries the GPS text.</td></tr>
+  <tr><td class="term">Convolutional code / FEC</td><td>Forward Error Correction: extra bits woven through the data so the receiver can repair errors. A convolutional code is one common kind.</td></tr>
+  <tr><td class="term">Viterbi algorithm</td><td>The optimal way to decode a convolutional code — finds the single most-likely whole message at once, rather than guessing bit by bit. Our key win (12/12 blocks vs. 4/12 greedy).</td></tr>
+  <tr><td class="term">Greedy decode</td><td>A simpler decoder that picks the best choice at each step and can't recover from a tie. What we replaced with Viterbi.</td></tr>
+  <tr><td class="term">CRC</td><td>A checksum that detects whether a block decoded correctly.</td></tr>
+  <tr><td class="term">Individual ID</td><td>Each radio's unique number (Jim's fleet: <code>9076801/02/03…</code>), carried in every position report. Lets us prove <em>which</em> radio we decoded.</td></tr>
+  <tr><td class="term">Known-plaintext attack</td><td>Proving a decode by comparing it to a trusted copy of the same message (here, the BK base's own NMEA).</td></tr>
+  <tr><td class="term">RNDIS</td><td>The USB-networking link the BK base uses to hand over finished NMEA — the "answer key" path we validate against.</td></tr>
+  <tr><td class="term">OP25</td><td>The open-source P25 decoder project our DSP and error-correction math is ported from.</td></tr>
+  <tr><td class="term">numpy / scipy</td><td>Big scientific-math libraries for Python — fast, but unavailable on the router, which forced the plain-Python rewrite.</td></tr>
+  <tr><td class="term">GIL</td><td>Python's rule that only one heavy task runs at a time. It caused the audio-overflow bug; the fix was a trivial reader that doesn't hold it.</td></tr>
+  <tr><td class="term">Kernel</td><td>The core software that runs a computer's hardware. The USB bug lived in an old kernel; kernel 6.6 fixes it.</td></tr>
+  <tr><td class="term">OpenWrt / op24</td><td>The Linux system the router runs. "op24" is the 24.10 / kernel-6.6 firmware where the sound card and SSD coexist.</td></tr>
+  <tr><td class="term">Leaflet / TPKX tiles</td><td>The browser map engine and the offline satellite/street map files it draws from the SSD.</td></tr>
+  <tr><td class="term">Garmin D800</td><td>The binary protocol the box's own GPS puck speaks over USB, read directly in software.</td></tr>
+</table>
+
+<hr class="soft">
+<p class="foot">Universal Traveler · P25-GPS-Decode · the whole story, 2026-11-23. Receive-only throughout — the radio is
+never transmitted to or altered. The signal-processing and error-correction stages are ported from the open-source
+OP25 project (osmocom / boatbod / and forks); the noise-quieting squelch, the Viterbi 1/2-rate decoder, the
+acquisition logic, and the on-box appliance are original to this work. Every over-the-air decode was validated
+character-for-character against a cooperating base's own NMEA. Written by Claude, with a team of agents, for Jim —
+and for whoever picks this up next.</p>
+
+</body>
+</html>
