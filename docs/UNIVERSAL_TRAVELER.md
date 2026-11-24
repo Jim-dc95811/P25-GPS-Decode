@@ -55,3 +55,26 @@ A man-packable, battery **GL-MT3000** that decodes **P25 Tier-1 GPS straight off
 - **D3 (2026-11-23) — GPS puck = Garmin GPS 18 USB** (libusb). The puck proven on both the Lookout and the Traveler bench — binary D800 read in pure ctypes/libusb, locked a real 3D fix, no re-lock trouble. Only dependency is `libusb`. (The serial VK172 u-blox was tried and dropped — one fix, then wouldn't re-lock.) So three USB devices on the powered hub: sound card + SSD + Garmin.
 - **D4 (2026-11-23) — Firmware step = Manager verifies, user flashes.** The user flashes the 24.10/6.6 image once through GL's own dashboard (a supported button, same place as first-boot setup — no brick risk). The Manager checks the kernel, **refuses to proceed if it's wrong**, then does the entire software provision in one shot. No scripted `sysupgrade` (a dropped connection/power mid-flash can brick a field box; GL doesn't cleanly support third-party sysupgrade). Matches the proven Lookout Manager pattern (SSH + opkg only, never flashes firmware).
 - **D5 (2026-11-23) — Radio audio in the browser = NO.** The Universal Traveler is **GPS-decode only**; the sound card feeds only the decoder (single consumer of `arecord`). Keeps it focused and matches the Traveler's stripped identity. (A browser-audio variant could come later, but would require re-architecting the capture to tee one `arecord` stream to both the decoder and an audio streamer — the card can't be opened twice. Not in scope now.)
+- **D6 (2026-11-23) — v1 scope = full-featured.** v1 ships the whole thing: OTA decode + split-screen map + Garmin "you are here" + reboot-survival + **live unit-naming** (ID → crew label) + **QR-card generation**, all in one Manager. Complete for crews on day one.
+
+---
+
+## Architecture (the from-scratch design)
+
+Two layers, both **fully independent of the BK Traveler** (zero shared files). Per the build philosophy: proven engines are **sealed modules bolted in**; the plumbing is **built fresh and coherent**.
+
+**Sealed modules — proven, reused as-is (not rewritten):**
+- **DSP decode engine** — `decode_pure/` (squelch → MMSE → C4FM → framer → BCH/Viterbi → NMEA). Bit-exact, validated.
+- **`units_kml`** — the Traveler map server (serves the split-screen, tiles from the SSD, live units, the naming endpoint).
+- **`map.html` + leaflet** — the locked synced split-screen (hybrid | street).
+- **Garmin reader** — `garmin_linux` / `gps_source` (libusb D800 "you are here").
+- **QR encoder** — the proven pure-Python QR maker (byte-mode, decode-verified).
+
+**Built fresh — clean, one purpose each:**
+- **`ut_bridge.py`** — the input stage, one coherent program: open the sound card → run the sealed decode engine → fold in the Garmin fix as the own-position unit → **normalize NMEA** (`$GPGGA` + recomputed checksum, fixing the garbled talker-ID) → serve the bk_bridge-compatible feed on `:10110`. Replaces `bk_bridge` so `units_kml` is untouched. Reader-thread/queue design (the proven GIL-safe capture).
+- **Boot services** — procd init scripts for **OpenWrt 24.10 / kernel 6.6** (bridge + map server, respawn, reboot-survival, end with `sync`).
+- **The Universal Traveler Manager** (PC, one program, tabbed): **Provision** (verify kernel 6.6 → `opkg` deps: python3, libusb, `kmod-usb-audio`/alsa → stream bundled box files via `cat >` → install + enable boot services → `sync` → **functional verify**: map draws, a unit plots) · **Name Units** (ID → label) · **Make QR** (address → print-ready card). One obvious `.bat` + `System Files` + PDF manual (install blurb on top). Files bundled (GitHub-free). Zero shared files with the BK Traveler Manager.
+
+**Maps:** the user drops a hybrid+street pair (same area) on the SSD, named to pair — the family model. The box detects and serves them; the Manager's functional check confirms a pair is present.
+
+**Build order:** (1) clean `ut_bridge.py` + NMEA normalization — verifiable here by replay → `:10110` → clean feed; (2) the 6.6 boot services; (3) assemble the box-file bundle; (4) the Manager program; (5) the PDF manual; (6) hand Jim the package → he flashes 6.6, runs the Manager, we prove the whole box end to end.
