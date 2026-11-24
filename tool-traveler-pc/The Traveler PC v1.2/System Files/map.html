@@ -121,25 +121,27 @@ function loadMaps(){
     else { maps.forEach(function(mp){ if(mp.base.replace(/\/+$/,"")===PATHBASE) cur=mp; }); }
     if(cur && TILEBASE===null){ TILEBASE = cur.base.replace(/\/+$/,""); pollMeta(); }  // first resolve
     var html='<h4>Maps</h4>';
-    if(maps.length===0){ html+='<a class="cur"><span class="sub">No maps in this folder &middot; use "Change maps folder" below, or drop a .tpkx / .mbtiles in</span></a>'; }
+    if(maps.length===0){ html+='<a class="cur"><span class="sub">No maps yet &middot; use "Pick a map" below to choose a .tpkx / .mbtiles file</span></a>'; }
     maps.forEach(function(mp){
       var isCur = cur && (mp.base===cur.base);
       html+='<a href="'+mp.base+'" class="'+(isCur?"cur":"")+'">'+esc(mp.name)+'</a>';
     });
-    html+='<a href="#" class="pick" id="pickfolder">&#128193; Change maps folder&hellip;</a>';
+    html+='<a href="#" class="pick" id="pickmap">&#128193; Pick a map (.tpkx)&hellip;</a>';
     document.getElementById("menu").innerHTML=html;
-    var pf=document.getElementById("pickfolder"); if(pf) pf.onclick=changeFolder;
+    var pf=document.getElementById("pickmap"); if(pf) pf.onclick=changeMap;
     document.getElementById("mapname").textContent = cur ? "· "+cur.name : "";
   }).catch(function(){});
 }
 // Let the user point The Traveler PC at ANY folder of maps on this PC (remembered).
 // /pick-folder opens a native folder dialog on this PC; then we reload to show the new folder.
-function changeFolder(e){
+function changeMap(e){
   if(e){ e.preventDefault(); e.stopPropagation(); }
   var mn=document.getElementById("menu");
-  mn.innerHTML='<h4>Maps</h4><a class="cur"><span class="sub">Opening the folder picker on this PC &mdash; choose where your maps are&hellip;</span></a>';
-  fetch("/pick-folder").then(function(r){return r.json()}).then(function(){ location.reload(); })
-   .catch(function(){ loadMaps(); });
+  mn.innerHTML='<h4>Maps</h4><a class="cur"><span class="sub">Opening the map picker on this PC &mdash; choose a .tpkx / .mbtiles file&hellip;</span></a>';
+  fetch("/pick-map").then(function(r){return r.json()}).then(function(d){
+    if(d && d.ok && d.slug){ location.href = "/m/"+d.slug+"/"; }   // jump to the picked map
+    else { loadMaps(); }                                           // cancelled - refresh the list
+  }).catch(function(){ loadMaps(); });
 }
 document.getElementById("maps").onclick=function(e){
   e.stopPropagation();

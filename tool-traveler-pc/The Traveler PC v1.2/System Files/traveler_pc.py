@@ -43,7 +43,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from live_core import LiveDecoder
 
-VERSION = "1.1"                   # The Traveler PC
+VERSION = "1.2"                   # The Traveler PC
 RATE = 48000                      # ask the card for 48 kHz mono (integer 10 sps)
 BLOCK = 2048                      # callback block size
 DEV_HINTS = ("blaster", "sb play", "usb audio", "usb-audio", "usb pnp", "line (")

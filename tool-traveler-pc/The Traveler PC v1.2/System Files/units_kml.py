@@ -578,8 +578,8 @@ class _H(BaseHTTPRequestHandler):
         path = urlparse(self.path).path.rstrip("/")
         if path == "/admin/aliases":
             return self._admin(read=True)
-        if path == "/pick-folder":
-            return self._pick_folder()
+        if path == "/pick-map":
+            return self._pick_map()
         if path in ("/open.kml", "/open", "/live", "/live.kml"):
             return self._serve_opener()   # one URL any device opens to get the LIVE, refreshing map
         if path == "/fetchlog":
@@ -684,22 +684,36 @@ class _H(BaseHTTPRequestHandler):
         except (ValueError, OSError) as e:
             return self._json(400, {"ok": False, "error": str(e)})
 
-    # ---- The Traveler PC: open a native folder picker on this PC so the user can
-    #      point at ANY folder of maps (remembered in maps_folder.txt), then rescan. ----
-    def _pick_folder(self):
-        folder = ""
+    # ---- The Traveler PC: open a native FILE picker on this PC so the user picks the
+    #      map (.tpkx / .mbtiles) to view. We serve that file's folder (so every map in
+    #      it lists too) and return the picked map's slug so the page jumps to it. ----
+    def _pick_map(self):
+        picked = ""
         try:
             import subprocess, sys as _sys
             script = str(Path(__file__).with_name("pick_maps.py"))
-            r = subprocess.run([_sys.executable, script, "--dialog"],
+            r = subprocess.run([_sys.executable, script],
                                capture_output=True, text=True, timeout=180)
             lines = [ln.strip() for ln in (r.stdout or "").splitlines() if ln.strip()]
-            folder = lines[-1] if lines else ""
+            picked = lines[-1] if lines else ""
         except Exception:
-            folder = ""
-        _maps(force=True)                       # rescan the newly-chosen folder right now
-        ok = bool(folder) and os.path.isdir(folder)
-        return self._json(200, {"ok": ok, "folder": folder, "count": len(_maps())})
+            picked = ""
+        slug = ""
+        if picked and os.path.isfile(picked):
+            try:
+                MAPS_CFG.write_text(os.path.dirname(picked), encoding="utf-8")   # serve its folder
+            except OSError:
+                pass
+            _maps(force=True)                   # rescan now so the picked map has a slug
+            try:
+                real = os.path.realpath(picked)
+                for s, info in _maps().items():
+                    if os.path.realpath(info["path"]) == real:
+                        slug = s
+                        break
+            except OSError:
+                pass
+        return self._json(200, {"ok": bool(slug), "slug": slug, "file": picked, "count": len(_maps())})
 
     def _json(self, code, obj):
         body = json.dumps(obj).encode("utf-8")
