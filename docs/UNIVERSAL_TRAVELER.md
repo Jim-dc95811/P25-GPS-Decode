@@ -2,6 +2,14 @@
 
 *Public-safe. Written as the from-scratch spec for the Universal Traveler and its one-shot Manager. This is the living record of what we decided and why, so nothing gets lost to compaction — update it as each decision is locked.*
 
+> **✅ PROVEN END-TO-END ON THE BOX — 2026-11-23.** A live P25 fleet unit decoded off
+> the air by a GL-MT3000 (op24 / kernel 6.6.110) and plotted with the box's own Garmin
+> fix on the offline split-screen, all three USB devices coexisting on one powered hub,
+> reboot-survival proven. Full technical account:
+> [`UNIVERSAL_TRAVELER_BRINGUP_2026-11-23.md`](UNIVERSAL_TRAVELER_BRINGUP_2026-11-23.md).
+> Shipped as **Universal Traveler Manager v1.1** (map server on `:8088` to clear op24's
+> uhttpd; Garmin self-GPS trusts `fix>=1`).
+
 ## What it is (one breath)
 
 A man-packable, battery **GL-MT3000** that decodes **P25 Tier-1 GPS straight off the air** (radio discriminator audio → USB sound card → on-box pure-Python decode) and serves a live **offline** map — locked split-screen hybrid | street, the box's own GPS "you are here", and every decoded fleet unit — to **any browser, nothing installed on the viewer**. No cooperating base, no SDR, no PC. Built fresh as its **own independent product** with a one-shot **Universal Traveler Manager**.

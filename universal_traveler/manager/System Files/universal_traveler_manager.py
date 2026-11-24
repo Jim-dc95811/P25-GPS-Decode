@@ -36,7 +36,7 @@ from tkinter import ttk, filedialog
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))                 # so the QR tab can import the sealed lookout_qr
 
-VERSION       = "1.0"
+VERSION       = "1.1"
 MAP_PORT      = 8088
 FEED_PORT     = 10110
 DEFAULT_IP    = "192.168.8.1"
