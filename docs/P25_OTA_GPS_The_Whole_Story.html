@@ -110,7 +110,7 @@
   </div>
   <div class="cover-meta">
     <span>Jim Gaddy · with Claude &amp; a team of agents</span>
-    <span>Status: proven live on the box · 2026-11-23</span>
+    <span>Status: proven live on the box · 2026-11-23 — continued 2026-11-25: location <em>and voice</em>, now a free public PC product</span>
   </div>
 </section>
 
@@ -589,6 +589,91 @@ done the way it was just done here.</p>
 from any P25 fleet, on a box that costs less than dinner, with no permission from anyone. For the people who run into
 the places everyone else runs out of, being findable is not a feature. It's the whole thing.</p>
 
+<!-- ============ THE NEXT CHAPTER ============ -->
+<h2>The next chapter — the story wasn't over</h2>
+
+<p class="lede">Everything above this line was written on the night of 23 November 2026, and it called itself <em>"the complete story,"</em> finished <em>"the night it finally worked end to end."</em> It was wrong — gloriously, happily wrong. What it proved — a position, pulled off the air, drawn on a map — turned out to be the <strong>first half</strong>. Two bigger things were already on the way: shedding the whole box, and <em>hearing</em> the fleet.</p>
+
+<p>Read what follows as the second half of the same work, two days on. Nothing above changes; this is where it went.</p>
+
+<!-- ============ PC PIVOT ============ -->
+<h2>Off the box, onto any PC — the pure form</h2>
+
+<p>Look back at what the box cost us: flashing firmware, talking to it over SSH, the USB-bandwidth fight, rewriting the whole decoder in plain Python because the little router had no math libraries. Every bit of that apparatus existed for <strong>one reason</strong> — to carry the decode onto a <em>locked-down</em> work PC, the kind an agency freezes so tightly that no one can install Python on it. The box was a way around a wall.</p>
+
+<p>On a normal PC — one you're allowed to run Python on — that wall isn't there, and the machinery melts away. No box to flash, no SSH, no firmware. Just a USB sound card on the radio's detector audio, a USB GPS for your own position, your offline maps in a folder, and <strong>one double-click</strong>. The same decode, the same map, with none of the scaffolding.</p>
+
+<div class="plain">
+  <div class="plain-h">In plain terms</div>
+  The battery box was never really the point — it was the compromise for a computer you're not allowed to touch. On a computer you <em>are</em> allowed to touch, the whole invention is just a small program and a $20 sound card. So that became the real product; the box lives on as the answer for the locked-down machines, where a program you can't install is useless.
+</div>
+
+<p>That pure-PC form is the flagship now: <strong>Claude McNally's PC P25 Receiver and GPS Map Plotter</strong> — free, standalone, with its own name and its own front door. The box (the Universal Traveler) stays as the option for a Group-Policy-locked agency PC. Same decode at the heart of both.</p>
+
+<!-- ============ VOICE ============ -->
+<h2>The other half of the signal — hearing it</h2>
+
+<p>Go back to the very beginning of this document. We made a deliberate choice there: the transmission carries both <em>data</em> and <em>voice</em>, and we <strong>threw the voice away</strong> — <em>"no vocoder, no patent, nothing proprietary in our path."</em> That was the clean road to the position. But the voice was still right there, in the same bursts, every time a unit keyed up. The question came back around: could we <em>hear</em> it too — in pure software, with no special hardware?</p>
+
+<p>Everyone says no. P25 voice is squeezed by a <span class="term">vocoder</span> — the part that compresses speech into a tiny digital stream and expands it back to sound — and that vocoder was patented by a company called DVSI. The accepted wisdom is that to hear P25 you must buy their licensed chip (a "DVstick"). We nearly ordered one.</p>
+
+<div class="callout key">
+  <div class="callout-h">The wall that wasn't there anymore</div>
+  P25 <strong>Phase-1 conventional voice is IMBE 4.4k</strong> — and the IMBE patents have <strong>expired</strong>. The still-encumbered part is the <em>newer</em> AMBE+2 codec (Phase-2 and the like); plain Phase-1 IMBE is now free to implement in software. The dongle everyone buys is decoding, in its Phase-1 mode, a codec whose patents have lapsed. The chip wasn't a law of physics — it was a habit.
+</div>
+
+<p>So we wrote the vocoder ourselves, in <strong>pure Python</strong>. It is a faithful port of the open-source <code>mbelib</code> — the same reference every hobbyist decoder leans on — carried over so exactly that we reproduced the C library's own random-number generator step for step. (The vocoder uses randomness to fill the breathy, unvoiced parts of speech; only an <em>identical</em> random stream gives identical sound.) The result matches the reference decoder to better than <strong>0.999 correlation</strong> — not "sounds similar," but numerically the same speech.</p>
+
+<p>Then we pointed it at the air. First a bench recording — a voice saying <em>"Testing 1234 1234,"</em> three times — came out of our software as exactly that phrase, three times, confirmed by ear. Then live fleet traffic, played back clean through the browser. Jim's words when it worked: <em>"WE ARE IN!!!! WORKS PERFECT!"</em></p>
+
+<div class="plain">
+  <div class="plain-h">What this means, plainly</div>
+  No dongle. No SDR. No licensed chip. The same sound card that reads the position now also reconstructs the voice, in software that runs anywhere Python does. The two halves of the transmission — <em>where they are</em> and <em>what they said</em> — both come off one wire.
+</div>
+
+<!-- ============ CURRENT SPEAKER ============ -->
+<h2>Who is talking — lighting the speaker on the map</h2>
+
+<p>Here is the detail that ties the two halves into one picture. Every voice transmission carries, folded into its own control data, the <strong>ID of the radio that is talking</strong> — and it is the <em>same</em> individual ID the GPS plots by. We pull it out of the voice frames (the <span class="term">Link Control</span> source address) and we know, for each key-up, <em>which</em> unit is on the air.</p>
+
+<p>So the map does something no scanner does: when a unit keys up, <strong>its dot lights up</strong>. You don't just hear a voice — you see, on your own imagery, exactly which crew it is and where they're standing while they speak.</p>
+
+<div class="plain">
+  <div class="plain-h">In plain terms</div>
+  The voice quietly announces "unit 9076801 is talking" inside every transmission. We read that, match it to the dot already on the map by the same number, and ring it. Where, who, and voice — fused by the radio's own ID.
+</div>
+
+<!-- ============ COMBO ============ -->
+<h2>The combo platter — see them and hear them at once</h2>
+
+<p>Put it together, and this is what a commander opens in a browser tab: every unit on their own offline map by its ID; their own position beside them; a <strong>Listen</strong> button; and, the instant anyone keys up, a <strong>Current Speaker</strong> readout with that unit lit on the map while the voice plays. One sound card. The whole fleet, located and heard.</p>
+
+<p>It has been proven live — three units on the map at once, the operator's own position and two named crews, with <em>"Jax 25 speaking"</em> lit and ringed while its voice came through the browser, nothing installed on the viewer.</p>
+
+<div class="callout">
+  <div class="callout-h">A quiet side-invention</div>
+  The receiver captures a whole key-up and then plays it, rather than streaming it live as it arrives. On a long transmission that runs a little behind real time — but you hear every word from the first syllable, with no clipped front end and no squelch tail, and on back-and-forth traffic a listener at a distance can't tell it was ever delayed. A cleaner listen than the radio itself gives, as a free consequence of how it's built.
+</div>
+
+<div class="callout">
+  <div class="callout-h">Rule #1 — never feed the vocoder garbage</div>
+  A vocoder handed a badly-received frame doesn't go quiet — it screeches. So the decoder scores each key-up's quality first and <strong>mutes a transmission that came in too broken to be worth playing</strong>, instead of blasting noise. Picky, and tunable. The quality is read from error counts the decode already produces, so it costs nothing extra.
+</div>
+
+<!-- ============ SENSITIVITY ============ -->
+<h2>As deaf as the radio, and no deafer</h2>
+
+<p>One more question deserved a real answer: how <em>weak</em> a signal can this software still read? We measured it properly — driving a calibrated lab signal generator (a VIAVI service monitor) down in level until the decode broke. Our software, off a plain sound card, held to the industry's 5%-error point at about <strong>−119&nbsp;dBm</strong> — squarely in the band a purpose-built commercial P25 radio is rated for. The cheap path is not a deaf path. It hears the air about as well as the radio that feeds it does.</p>
+
+<!-- ============ HOLY GRAIL ============ -->
+<h2>The Holy Grail</h2>
+
+<p>Step all the way back. Years ago, the idea of getting GPS out of P25 for firefighter safety was raised — and shut down, for reasons that had nothing to do with whether it could be built. It sat as an unfinished want: the original Holy Grail.</p>
+
+<p>It isn't a want anymore, and it isn't a lab result. It is a <strong>free, public, standalone product</strong> that anyone can download and run — with its own name, its own front page, and a live screenshot of it working as the first thing a visitor sees. It pulls both the <strong>position and the voice</strong> of any P25 fleet straight out of the air, fuses them by the radio's own ID, and plots and plays them on your own offline map. No SDR. No base station. No internet, no cloud. No licensed chip. No permission from anyone.</p>
+
+<p>The point of all of it stays small and human — and now it's doubled. A commander opens a map and sees where the crews are, and <em>hears</em> them. For the people who run into the places everyone else runs out of, being <strong>findable</strong> was already the whole thing. Being <strong>heard</strong> too is the rest of it.</p>
+
 <!-- ============ GLOSSARY ============ -->
 <h2>Glossary — every term, plainly</h2>
 
@@ -626,15 +711,24 @@ the places everyone else runs out of, being findable is not a feature. It's the 
   <tr><td class="term">OpenWrt / op24</td><td>The Linux system the router runs. "op24" is the 24.10 / kernel-6.6 firmware where the sound card and SSD coexist.</td></tr>
   <tr><td class="term">Leaflet / TPKX tiles</td><td>The browser map engine and the offline satellite/street map files it draws from the SSD.</td></tr>
   <tr><td class="term">Garmin D800</td><td>The binary protocol the box's own GPS puck speaks over USB, read directly in software.</td></tr>
+  <tr><td class="term">Vocoder</td><td>The part that compresses speech into a tiny digital stream and expands it back to sound. P25's is IMBE/AMBE. We wrote one in pure software.</td></tr>
+  <tr><td class="term">IMBE</td><td>The P25 Phase-1 voice codec (4.4 kbit/s). Its patents have expired, which is why a free-software decode is legal.</td></tr>
+  <tr><td class="term">AMBE+2 / DVSI</td><td>The newer, still-patented codec (Phase-2 and others) from DVSI, the vocoder company. The licensed "DVstick" is for this — not needed for Phase-1 IMBE.</td></tr>
+  <tr><td class="term">mbelib</td><td>The open-source reference vocoder library our pure-Python IMBE decoder is faithfully ported from.</td></tr>
+  <tr><td class="term">LDU</td><td>A P25 voice frame (Logical Data Unit) carrying the compressed speech — and, in the first of each pair, the talking radio's Link Control.</td></tr>
+  <tr><td class="term">Link Control / source ID</td><td>Control data inside the voice frames naming the talking radio — the same individual ID the GPS plots by. It's what lights the current speaker on the map.</td></tr>
+  <tr><td class="term">Current Speaker</td><td>The live readout of which unit is transmitting, taken from the Link Control source ID and shown by lighting that unit's dot.</td></tr>
+  <tr><td class="term">dBm / sensitivity</td><td>A measure of signal power (more negative = weaker). "Sensitivity" is the weakest signal still decodable; ours is ≈ −119 dBm, matching a commercial P25 radio.</td></tr>
 </table>
 
 <hr class="soft">
-<p class="foot">Universal Traveler · P25-GPS-Decode · the whole story, 2026-11-23. Receive-only throughout — the radio is
-never transmitted to or altered. The signal-processing and error-correction stages are ported from the open-source
-OP25 project (osmocom / boatbod / and forks); the noise-quieting squelch, the Viterbi 1/2-rate decoder, the
-acquisition logic, and the on-box appliance are original to this work. Every over-the-air decode was validated
-character-for-character against a cooperating base's own NMEA. Written by Claude, with a team of agents, for Jim —
-and for whoever picks this up next.</p>
+<p class="foot">P25-GPS-Decode · the story through 2026-11-25. Receive-only throughout — the radio is never transmitted
+to or altered. The signal-processing and error-correction stages are ported from the open-source OP25 project
+(osmocom / boatbod / and forks); the IMBE voice decoder is ported from the open-source mbelib; the noise-quieting
+squelch, the Viterbi 1/2-rate decoder, the acquisition logic, the current-speaker fusion, and the appliance and PC
+products are original to this work. Every over-the-air position was validated character-for-character against a
+cooperating base's own NMEA; every decoded voice was confirmed by ear. Written by Claude, with a team of agents,
+for Jim — and for whoever picks this up next.</p>
 
 </body>
 </html>
