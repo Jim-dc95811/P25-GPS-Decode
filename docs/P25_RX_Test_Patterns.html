@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: Letter; margin: 0.7in 0.75in; }
+  :root{
+    --ink:#132132; --ink2:#38485e; --muted:#6a798c; --gold:#c8890a; --goldbg:#fff6e2;
+    --line:#d9e2ee; --green:#1f9d57; --greenbg:#e9f8ef; --teal:#0e7fa0; --tealbg:#e6f5fb;
+    --sync:#7a52d8; --codebg:#f4f7fb;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:"Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;color:var(--ink);
+       font-size:11.2px;line-height:1.5;margin:0;}
+  h1{font-size:25px;font-weight:800;letter-spacing:-.4px;margin:0 0 3px;}
+  .kick{font-size:11px;letter-spacing:.2em;font-weight:800;color:var(--gold);text-transform:uppercase;}
+  .sub{font-size:12.5px;color:var(--ink2);margin:4px 0 2px;}
+  .meta{font-size:10px;color:var(--muted);margin-bottom:14px;}
+  h2{font-size:14.5px;font-weight:800;margin:20px 0 8px;padding-bottom:4px;border-bottom:2px solid var(--line);}
+  h2 .n{display:inline-flex;width:20px;height:20px;border-radius:50%;background:var(--ink);color:#fff;
+        font-size:11px;align-items:center;justify-content:center;margin-right:8px;vertical-align:2px;}
+  p{margin:6px 0;}
+  b{color:var(--ink);}
+  code,.mono{font-family:"Consolas",ui-monospace,monospace;background:var(--codebg);padding:1px 5px;border-radius:4px;font-size:10.4px;}
+  .pill{display:inline-block;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;
+        padding:2px 8px;border-radius:20px;}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:10.6px;}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top;}
+  th{background:#eef3f9;font-weight:800;font-size:10px;letter-spacing:.03em;}
+  td b{color:var(--ink);}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0;}
+  .card{border:1px solid var(--line);border-radius:10px;padding:11px 13px;break-inside:avoid;}
+  .card h3{margin:0 0 4px;font-size:12.5px;font-weight:800;display:flex;align-items:center;gap:8px;}
+  .card .role{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);}
+  .card p{margin:4px 0;font-size:10.4px;line-height:1.45;}
+  .tag-clean{background:var(--greenbg);color:var(--green);}
+  .tag-cal{background:var(--goldbg);color:var(--gold);}
+  .tag-prbs{background:var(--tealbg);color:var(--teal);}
+  .tag-idle{background:#eef1f5;color:var(--muted);}
+  .callout{background:var(--goldbg);border:1px solid #f0d294;border-left:4px solid var(--gold);
+           border-radius:8px;padding:10px 13px;margin:10px 0;font-size:10.6px;break-inside:avoid;}
+  .callout b{color:#8a5e06;}
+  .steps{counter-reset:s;margin:8px 0;padding:0;list-style:none;}
+  .steps li{counter-increment:s;position:relative;padding:5px 0 5px 30px;font-size:10.8px;line-height:1.5;break-inside:avoid;}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:4px;width:21px;height:21px;border-radius:50%;
+        background:var(--ink);color:#fff;font-weight:800;font-size:10.5px;display:flex;align-items:center;justify-content:center;}
+  .src{font-size:9.3px;color:var(--muted);margin-top:4px;line-height:1.5;}
+  .foot{margin-top:16px;padding-top:8px;border-top:1px solid var(--line);font-size:9px;color:var(--muted);}
+  .ok{color:var(--green);font-weight:800;} .warn{color:var(--gold);font-weight:800;}
+</style>
+</head>
+<body>
+
+  <div class="kick">P25-GPS-Decode · bench reference</div>
+  <h1>P25 Receive-Side Test Patterns</h1>
+  <div class="sub">What each pattern is, what it's for, and how we use them to measure 5% BER sensitivity.</div>
+  <div class="meta">VIAVI 8800SX · P25 Phase 1 · 2026-11-25</div>
+
+  <h2><span class="n">1</span>Why a known pattern at all</h2>
+  <p>BER (Bit Error Rate) is simply <b>errored bits ÷ total bits</b>, as a percent. To count errors you have to know what was <i>supposed</i> to arrive — so the generator sends a <b>defined bit sequence</b> and the receiver compares what it decoded against that known reference. The P25 reference sensitivity point is a <b>5% BER</b>: the weakest RF level at which a receiver still decodes with no more than 5% of its bits wrong (typically <b>−116 to −120 dBm</b> for a good Phase-1 radio). Different patterns serve different jobs in getting to that number.</p>
+
+  <h2><span class="n">2</span>The four patterns on the 8800SX</h2>
+  <div class="cards">
+    <div class="card">
+      <h3>STD 1011 <span class="pill tag-clean">clean · 0% built-in</span></h3>
+      <div class="role">Standard Tone Test Pattern (TIA-102)</div>
+      <p>A defined sequence weighted toward the <code>00</code>/<code>01</code> dibits that decodes to a clean <b>~1011 Hz tone</b>. <b>No injected errors.</b></p>
+      <p><b>Use:</b> audio/functional check, deviation &amp; frequency (AFC) reference, and the <b>baseline for a sensitivity sweep</b> — it reads <span class="ok">0%</span> on a strong signal, and you lower the level until <b>noise</b> drives it to 5%.</p>
+    </div>
+    <div class="card">
+      <h3>STD CAL <span class="pill tag-cal">~4.98% built-in</span></h3>
+      <div class="role">Calibration Test Pattern (TIA-102)</div>
+      <p>STD 1011 with <b>every 20th bit intentionally inverted</b> → exactly <b>172 errored bits per 3,456</b> = <b>4.977%</b> BER <b>by construction, at any signal level.</b></p>
+      <p><b>Use:</b> <b>calibrate the BER meter.</b> At a strong level it must read <span class="warn">~4.98%</span> — that proves the error counter is accurate <i>before</i> you trust it on a real sweep. It is <b>not</b> a sensitivity pattern and never reads 0%.</p>
+    </div>
+    <div class="card">
+      <h3>STD 511 / O.153 <span class="pill tag-prbs">PRBS-9 · BER sweep</span></h3>
+      <div class="role">511-bit pseudo-random (ITU-T O.153, ex-V.52)</div>
+      <p>A 511-bit PRBS (PRBS-9) — every symbol transition exercised evenly, simulating real random traffic. No injected errors.</p>
+      <p><b>Use:</b> the <b>rigorous sensitivity-sweep</b> pattern (the standard way to find the ≤5% reference sensitivity). ~0% on a strong signal, climbs with noise. Note: it's <b>not</b> voice frames, so a normal radio won't unmute on it — a radio's <i>own</i> BER readout needs <b>OEM test mode</b>. (Our DEO tap reads the symbols regardless — see §5.)</p>
+    </div>
+    <div class="card">
+      <h3>STD Silence <span class="pill tag-idle">digital silence</span></h3>
+      <div class="role">Valid voice frames at zero audio (TIA-102)</div>
+      <p>A <b>valid P25 LDU voice-frame</b> structure carrying IMBE/AMBE frames at <b>zero audio level</b> — real framing, headers and NAC, just silent.</p>
+      <p><b>Use:</b> audio noise floor, squelch, and <b>receiver unmute verification</b> (residual audio-noise ratio, TIA-102.CAAA). Because it carries valid NAC/framing without OEM software, it confirms a radio decodes the NAC and holds squelch open cleanly. <b>Not</b> a BER pattern.</p>
+    </div>
+  </div>
+
+  <h2><span class="n">3</span>STD 1011 vs STD CAL — the one that trips people up</h2>
+  <table>
+    <tr><th>Attribute</th><th>STD 1011</th><th>STD CAL</th></tr>
+    <tr><td><b>TIA-102 name</b></td><td>Standard Tone Test Pattern</td><td>Calibration Test Pattern</td></tr>
+    <tr><td><b>Built-in errors</b></td><td><span class="ok">0%</span> (0 errors)</td><td><span class="warn">4.977%</span> (172 / 3,456 — every 20th bit inverted)</td></tr>
+    <tr><td><b>Reads at strong signal</b></td><td>0% BER</td><td>~4.98% BER (level-independent)</td></tr>
+    <tr><td><b>Audio</b></td><td>Clean 1011 Hz tone</td><td>1011 Hz tone with injected errors</td></tr>
+    <tr><td><b>What it's for</b></td><td>Functional/audio check, AFC/deviation, and the <b>sensitivity sweep</b> baseline</td><td><b>Verifying the BER meter reads ~5% correctly</b> before a sweep</td></tr>
+  </table>
+  <div class="callout"><b>The gotcha:</b> CAL is <b>not</b> a clean baseline — its ~5% is baked into the bits, independent of RF level. If you want a true <b>0%</b> reference, that's <b>1011</b>. CAL exists to prove your 5% mark is honest.</div>
+
+  <h2><span class="n">4</span>The 5% BER sensitivity test — correct order of operations</h2>
+  <ol class="steps">
+    <li><b>Calibrate the meter — STD CAL at a strong level (e.g. −90 dBm).</b> The counter must read <b>~4.98%</b>. That confirms the error count itself is trustworthy.</li>
+    <li><b>Baseline the decoder — STD 1011 at the same strong level.</b> It must read <b>0%</b>. That confirms the whole receive + decode chain is clean with a good signal.</li>
+    <li><b>Sweep — STD 511 / O.153 (the rigorous PRBS pattern; 1011 also works), step the RF level down.</b> BER climbs as the signal approaches the noise floor. The level where it crosses <b>5%</b> is the sensitivity.</li>
+    <li><b>Record that level.</b> Compare it against the reference radio's 5% level measured on the <b>same generator, same calibration</b> — a true head-to-head.</li>
+  </ol>
+  <p>The test set reads a radio's BER only if the radio exposes a <b>BER test mode / data output</b> (or loops the signal back). Our method doesn't need that — see §5.</p>
+
+  <h2><span class="n">5</span>How we run it (DEO tap → software)</h2>
+  <p>We don't use the radio's internal BER meter, and we don't need the radio in <b>OEM test mode</b> — the standard requirement for a radio to report its own BER. The VIAVI feeds the reference pattern into the host radio; we tap the <b>detector output (DEO)</b>, capture it on a sound card, and our software recovers the symbols and <b>counts errors against the known pattern</b>. We are the BER meter, reading the detected symbols directly (muted or not). The same two baselines apply to <i>our</i> measuring chain:</p>
+  <table>
+    <tr><th>Step</th><th>Pattern @ −90 dBm</th><th>Our software should read</th><th>Proves</th></tr>
+    <tr><td>Decoder control</td><td><b>STD 1011</b></td><td class="ok">~0%</td><td>capture + demod + decode chain is clean</td></tr>
+    <tr><td>Meter calibration</td><td><b>STD CAL</b></td><td class="warn">~4.98%</td><td>our error counter is accurate</td></tr>
+    <tr><td>Sensitivity sweep</td><td><b>STD 511</b> (or 1011), stepping down</td><td>climbs 0 → 5%</td><td>the RF level at our 5% = our sensitivity</td></tr>
+  </table>
+  <p>Our software scores against the clean <b>1011 reference</b> (we hold the standard pattern's symbol sequence). CAL's ~4.98% is exactly the injected-error rate measured against that clean reference — so if we read 4.98% on CAL, our counter is honest.</p>
+
+  <h2><span class="n">6</span>Raw vs corrected — where our edge actually is</h2>
+  <p>The 5% sensitivity number is a <b>channel (pre-FEC) BER</b> — symbol/bit errors straight off the demodulator. Here a good radio and our MMSE recovery both sit near the theoretical optimum, so the honest expectation is that we <b>match</b> the reference radio — a PC tying purpose-built hardware. The place a decoder can pull <b>ahead</b> is the <b>corrected (post-FEC) / message</b> layer, where soft-decision Viterbi reclaims coding gain a hard-decision firmware leaves on the table. That's the GPS-frame success test, not the raw-pattern BER — run both, and keep the claims separate.</p>
+  <div class="callout"><b>Both radios share the same −120 dBm noise floor (physics).</b> This is a coding-efficiency contest — who decodes nearest the floor — not a sensitivity contest. We don't beat thermal noise; we close the gap to it.</div>
+
+  <div class="foot">
+    Full 8800SX / 39xx pattern set: STD 1011, STD CAL, STD SILENCE, STD 511 (O.153), plus STD INTFR (interference), STD BUSY, STD IDLE (not used here). &nbsp;Sources: TIA-102.CAAA (P25 C4FM test patterns &amp; procedures); VIAVI 8800 Series Operation Manual, 3920B spec sheet &amp; CX300 P25 Option Guide; VIAVI "Understanding P25 Modulation Fidelity" app note; Anritsu P25 measurement app note (11410-00694A); UrgentComm "Putting Project 25 to the test"; RadioReference forums. STD CAL = STD 1011 with every 20th bit inverted (172/3,456 = 4.977%).<br>
+    Receive-only, read-only — the radio is never transmitted on or altered.
+  </div>
+
+</body>
+</html>
