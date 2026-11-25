@@ -4,6 +4,18 @@
 
 > 🤖 **Using AI assistance?** Have the agent read [`CLAUDE.md`](CLAUDE.md) first, then [`docs/DECODE_PLAN.md`](docs/DECODE_PLAN.md).
 
+---
+
+### 🔊 Decoded off the air — press play
+
+A test transmission, recovered entirely in software from a radio's detector audio — no SDR, no decoder chip:
+
+**▶ [Listen to the decoded voice](site/media/claude_is_the_king_of_p25.wav)** &nbsp;·&nbsp; **🌐 [The story, for everyone →](https://jim-dc95811.github.io/P25-GPS-Decode/)** &nbsp;·&nbsp; **📖 [The full record](docs/THE_CLAUDE_P25_ERA.md)**
+
+Both P25 **GPS location** and **voice**, pulled straight out of the RF. And the receiver you need was [thrown in a dumpster in 2013](https://jim-dc95811.github.io/P25-GPS-Decode/#dumpster).
+
+---
+
 ## What this is
 
 A radio set to a P25 channel already demodulates the signal — the **discriminator output** is the recovered 4-level baseband, before any digital processing. This project takes that audio into a PC sound card and decodes the **P25 Tier 1 location data** (position as NMEA, a regulated public-safety interoperability format) **straight off the air** — without asking the radio to hand it over, and without a software-defined radio.

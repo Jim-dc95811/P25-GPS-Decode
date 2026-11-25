@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>P25-GPS-Decode — Tier-1 GPS off the air, free</title>
+<meta name="description" content="A plain PC, a sound card, and free software decode P25 GPS location and voice straight off the air — no SDR, no cooperating base station. And the receiver you need is in the dumpster.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+  :root{
+    --bg:#0b1016; --bg2:#0f1620; --card:#141d29; --line:#243141;
+    --ink:#eaf1f8; --ink2:#aab8c8; --muted:#73839a;
+    --gold:#ffb020; --goldsoft:#ffcf6b; --green:#3fcf7a; --teal:#38c6e0; --red:#ff6b5a;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:"Inter",system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif;
+       font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3{font-family:"Space Grotesk","Inter",sans-serif;line-height:1.12;margin:0;text-wrap:balance;}
+  a{color:var(--goldsoft);}
+  .wrap{max-width:860px;margin:0 auto;padding:0 22px;}
+  .kick{font-size:13px;letter-spacing:.24em;text-transform:uppercase;font-weight:700;color:var(--gold);}
+
+  /* hero */
+  .hero{position:relative;overflow:hidden;border-bottom:1px solid var(--line);
+        background:radial-gradient(1200px 500px at 70% -10%,rgba(255,176,32,.14),transparent 60%),
+                   radial-gradient(900px 400px at 10% 110%,rgba(56,198,224,.10),transparent 60%),var(--bg);}
+  .hero .wrap{padding-top:68px;padding-bottom:54px;}
+  .hero h1{font-size:clamp(34px,6.2vw,60px);font-weight:700;letter-spacing:-1px;margin:16px 0 0;}
+  .hero h1 .g{color:var(--gold);}
+  .lede{font-size:clamp(18px,2.4vw,22px);color:var(--ink2);margin:18px 0 0;max-width:40ch;}
+  .tags{margin-top:22px;display:flex;flex-wrap:wrap;gap:8px;}
+  .tag{font-size:13px;font-weight:600;color:var(--ink2);background:var(--card);border:1px solid var(--line);
+       border-radius:30px;padding:5px 13px;}
+  .tag b{color:var(--green);}
+
+  /* audio player */
+  .player{margin-top:30px;background:linear-gradient(180deg,#16202d,#111924);
+          border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:14px;padding:18px 20px;}
+  .player .lab{font-family:"Space Grotesk";font-weight:600;font-size:18px;margin:0 0 4px;}
+  .player .sub{font-size:14px;color:var(--muted);margin:0 0 12px;}
+  audio{width:100%;filter:saturate(1.1);}
+  .player .cap{font-size:13px;color:var(--ink2);margin:11px 0 0;}
+  .player .cap b{color:var(--goldsoft);}
+
+  section{padding:46px 0;border-bottom:1px solid var(--line);}
+  section h2{font-size:clamp(24px,3.4vw,32px);font-weight:700;letter-spacing:-.5px;}
+  section h2 .n{color:var(--gold);font-size:.7em;margin-right:10px;}
+  p{margin:14px 0;color:var(--ink2);} p b{color:var(--ink);}
+  .big{font-size:20px;color:var(--ink);}
+  ul{color:var(--ink2);padding-left:20px;} li{margin:8px 0;}
+  code{font-family:"Consolas",ui-monospace,monospace;background:#0c131c;border:1px solid var(--line);
+       border-radius:5px;padding:1px 6px;font-size:.88em;color:var(--goldsoft);}
+
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px;}
+  @media(max-width:620px){.cols{grid-template-columns:1fr;}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px;}
+  .card h3{font-size:19px;font-weight:600;margin-bottom:6px;}
+  .card.win{border-left:4px solid var(--green);} .card.win h3{color:var(--green);}
+  .card.lose{border-left:4px solid var(--red);} .card.lose h3{color:var(--red);}
+  .card .mini{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:10px;}
+
+  .steps{counter-reset:s;margin-top:22px;}
+  .step{display:flex;gap:16px;padding:14px 0;border-top:1px solid var(--line);}
+  .step:first-child{border-top:none;}
+  .step .no{counter-increment:s;flex:0 0 36px;height:36px;border-radius:50%;background:var(--gold);color:#1a1205;
+            font-family:"Space Grotesk";font-weight:700;display:flex;align-items:center;justify-content:center;font-size:17px;}
+  .step .no::before{content:counter(s);}
+  .step .tx{flex:1;} .step .tx b{color:var(--ink);font-family:"Space Grotesk";font-weight:600;}
+
+  .pull{font-family:"Space Grotesk";font-weight:600;font-size:clamp(22px,3.2vw,30px);color:var(--ink);
+        line-height:1.25;margin:4px 0 0;letter-spacing:-.4px;}
+  .pull .g{color:var(--gold);}
+  .note{background:#0e1620;border:1px solid var(--line);border-left:4px solid var(--teal);border-radius:12px;
+        padding:16px 18px;margin-top:22px;font-size:15px;color:var(--ink2);}
+  .note b{color:var(--teal);}
+
+  footer{padding:40px 0 60px;color:var(--muted);font-size:14px;}
+  footer a{color:var(--goldsoft);text-decoration:none;} footer a:hover{text-decoration:underline;}
+  .foothead{font-family:"Space Grotesk";font-weight:600;color:var(--ink);font-size:18px;margin-bottom:10px;}
+  .btn{display:inline-block;background:var(--gold);color:#1a1205;font-family:"Space Grotesk";font-weight:700;
+       text-decoration:none;border-radius:10px;padding:11px 20px;font-size:16px;margin-top:6px;}
+  .btn.ghost{background:transparent;color:var(--goldsoft);border:1px solid var(--line);}
+  .small{font-size:13px;color:var(--muted);}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="kick">P25-GPS-Decode · free &amp; open</div>
+    <h1>We taught a radio pulled from the <span class="g">trash</span> to hear and locate a whole fleet.</h1>
+    <p class="lede">P25 GPS location — and voice — decoded straight off the air by a plain PC and a sound card. No specialized radio. No cooperating base station. No cloud.</p>
+    <div class="tags">
+      <span class="tag"><b>✓</b> GPS off the air</span>
+      <span class="tag"><b>✓</b> Voice off the air</span>
+      <span class="tag"><b>✓</b> No SDR required</span>
+      <span class="tag"><b>✓</b> Offline</span>
+      <span class="tag"><b>✓</b> Free &amp; open</span>
+    </div>
+
+    <div class="player">
+      <p class="lab">▶ This sentence was pulled out of thin air.</p>
+      <p class="sub">Recovered from a radio transmission by software on a regular PC — no decoder chip, no SDR.</p>
+      <audio controls preload="metadata" src="media/claude_is_the_king_of_p25.wav"></audio>
+      <p class="cap">A test transmission, decoded entirely in software from the radio's detector audio. If you can hear words, that's the whole point: <b>the signal was in the noise, and now it's out.</b></p>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="kick">The 60-second version</div>
+    <h2 style="margin-top:12px;">What this is, in plain English</h2>
+    <p class="big">Public-safety radios on the P25 standard can broadcast their <b>GPS location</b> right along with voice. Normally, reading those locations takes a specific manufacturer's base station feeding a special app — a walled garden.</p>
+    <p>This project tears the wall down. A radio tuned to the channel already turns the signal into a wiggle of voltage — the <b>detector (discriminator) output</b>. We take that wiggle into a <b>$5 USB sound card</b> and let software do the rest: find the digital symbols, rebuild the data, and read out the exact position and unit number the radio sent — <b>straight off the air</b>, from any compatible receiver, with no SDR and nobody's permission.</p>
+    <p>It started as one person's long-chased goal: <b>get firefighters' locations off their radios so no one is lost in the woods or the smoke.</b> That's still the point.</p>
+  </div>
+</section>
+
+<section id="dumpster">
+  <div class="wrap">
+    <div class="kick">The part that changes everything</div>
+    <h2 style="margin-top:12px;"><span class="n">01</span>Your receiver is in a dumpster</h2>
+    <p>On <b>January 1, 2013</b>, the FCC's <b>narrowbanding</b> mandate took effect: every VHF and UHF land-mobile licensee had to cut their channels from the old 25 kHz "wideband" down to 12.5 kHz. Overnight, a mountain of perfectly good <b>wideband two-way radios</b> became non-compliant to <i>license</i> — and got stripped out of trucks, towers, and fire stations by the thousands.</p>
+    <p class="pull">They stopped being <span class="g">legal to transmit on.</span><br>They never stopped being <span class="g">excellent receivers.</span></p>
+    <p>That surplus is exactly the front end this project wants: a real commercial VHF radio you can set wide, tap at the detector, and feed to a sound card. They turn up for near-nothing — or free — at agencies, surplus sales, hamfests, and yes, the scrap pile. <b>The expensive part of a software receiver was always the radio in front of it. Narrowbanding made that part free.</b></p>
+  </div>
+</section>
+
+<section id="sdr">
+  <div class="wrap">
+    <div class="kick">"Why not just use an SDR dongle?"</div>
+    <h2 style="margin-top:12px;"><span class="n">02</span>Because a real radio can actually <i>hear</i></h2>
+    <p>The obvious move is a $30 SDR dongle. For a quiet bench, fine. But public safety doesn't live on a quiet bench — it lives next to high-power transmitters, repeater sites, pagers, broadcast towers, and a city full of RF. That environment is exactly where a purpose-built <b>land-mobile radio (LMR)</b> leaves a cheap SDR in the dust, and the reason is <b>selectivity</b> — the ability to hear <i>one</i> channel and reject everything else.</p>
+
+    <div class="cols">
+      <div class="card win">
+        <div class="mini">Purpose-built LMR radio</div>
+        <h3>Built to hear one channel in a storm</h3>
+        <ul>
+          <li><b>Tuned front end / helical resonators</b> — band-limited before the first mixer, so out-of-band giants (FM broadcast, pagers, cell, the repeater next to it) are rejected up front.</li>
+          <li><b>Crystal &amp; ceramic IF filters</b> — steep, multi-pole skirts giving <b>70–80+ dB adjacent-channel rejection.</b> It pulls the wanted 12.5 kHz out clean even with a strong signal one channel over.</li>
+          <li><b>Superhet with high blocking dynamic range</b> — engineered to survive co-located transmitters. A strong neighbor doesn't flatten it.</li>
+        </ul>
+      </div>
+      <div class="card lose">
+        <div class="mini">Typical cheap SDR dongle</div>
+        <h3>Hears everything at once — and chokes</h3>
+        <ul>
+          <li><b>Wide-open broadband tuner</b> (tens of MHz to GHz) with little or no preselection — it sees the <i>whole</i> spectrum, strong signals included.</li>
+          <li><b>Low-bit ADC, limited dynamic range</b> — one strong nearby transmitter <b>overloads and desenses</b> the front end: intermod, images, phantom signals, and the weak signal you wanted is buried.</li>
+          <li><b>Filtering happens in software — too late.</b> Once a blocker has clipped the converter, no amount of DSP recovers it. You can't un-saturate an ADC.</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="note"><b>The honest version:</b> a high-end SDR with an external preselector and a better converter can be superb — this isn't "SDR bad." It's that a <i>free surplus LMR radio</i> already has decades of RF front-end engineering baked in for precisely the hostile, transmitter-dense world public safety operates in. For <i>this</i> job, the radio in the dumpster isn't just cheaper than the dongle — in a dirty RF environment, it <b>hears better.</b></p>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <div class="kick">How it works</div>
+    <h2 style="margin-top:12px;"><span class="n">03</span>Detector audio in, map out</h2>
+    <div class="steps">
+      <div class="step"><div class="no"></div><div class="tx"><b>Tap the detector.</b> A wire from the radio's detector/discriminator output (e.g. a rear accessory pin) into a USB sound card. The radio does the hard RF part; we take the recovered baseband.</div></div>
+      <div class="step"><div class="no"></div><div class="tx"><b>Recover the symbols.</b> Software locks onto the P25 four-level signal, finds the frame sync, and reads the digital bits — the same job a decoder chip does, done in plain code.</div></div>
+      <div class="step"><div class="no"></div><div class="tx"><b>Rebuild the message.</b> Error-correction (Viterbi, Golay, Hamming) repairs the bits, and out comes the standardized location sentence — position + the unit's own ID — and, from the voice frames, the audio itself.</div></div>
+      <div class="step"><div class="no"></div><div class="tx"><b>Put it on a map.</b> Each unit plots on an offline map by its ID; the talking unit can light up as it speaks. Nothing installed on the viewer, nothing in the cloud.</div></div>
+    </div>
+  </div>
+</section>
+
+<section id="proven">
+  <div class="wrap">
+    <div class="kick">Where it stands — honestly</div>
+    <h2 style="margin-top:12px;"><span class="n">04</span>What's actually proven</h2>
+    <p>No hand-waving. Every claim here was checked against ground truth — the exact data a cooperating base reports — before it was believed.</p>
+    <ul>
+      <li><b>GPS, live off the air.</b> A transmission decoded the instant it keyed up — full position, valid checksum, correct unit ID — with no base radio, no SDR, no gateway. On a clean capture, <b>10 of 10 transmissions decoded exact</b> (position, unit ID, and checksum) against the base's own feed.</li>
+      <li><b>Sensitivity matching the pros.</b> Measured on a calibrated service monitor, the software receiver reaches its error limit at <b>≈ −119 dBm</b> — inside the range of purpose-built commercial P25 hardware.</li>
+      <li><b>Voice, in free software.</b> The same decoder recovers the voice frames and reconstructs intelligible audio — the clip at the top of this page came out of a real transmission, confirmed by ear by a 37-year radio engineer. (An independent vocoder cross-check is the next step to make it bulletproof.)</li>
+      <li><b>Runs on nearly nothing.</b> A plain PC, or even a $40 travel router. Offline. No subscription, no vendor, no gatekeeper.</li>
+    </ul>
+    <p class="note" style="border-left-color:var(--gold);"><b style="color:var(--gold);">Receive only.</b> This is a passive receiver — it only ever listens, and only to unencrypted traffic that a scanner could already hear. It decodes nothing that's encrypted and transmits nothing. Monitoring laws vary by place and use; it's on you to know and follow the rules where you are. This is a tool and a technique, shared openly for safety and learning — not anyone's data.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foothead">Build it, read it, take it apart.</div>
+    <p>It's all open source. The code, the full technical write-up, and the complete record of how it was figured out are in the repository.</p>
+    <p>
+      <a class="btn" href="https://github.com/Jim-dc95811/P25-GPS-Decode">View the project on GitHub →</a>
+      <a class="btn ghost" href="https://github.com/Jim-dc95811/P25-GPS-Decode/blob/main/docs/THE_CLAUDE_P25_ERA.md">Read the full story</a>
+    </p>
+    <p class="small" style="margin-top:22px;">P25-GPS-Decode · Tier-1 GPS and voice, decoded off the air, free and open · receive-only / read-only · built by Jim with AI assistance. The barrier that stood for years turned out to be a clock that never drifts and a published interleave table. 2026.</p>
+  </div>
+</footer>
+
+</body>
+</html>
