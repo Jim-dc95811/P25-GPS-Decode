@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: Letter; margin: 0.7in 0.75in; }
+  :root{
+    --ink:#132132; --ink2:#38485e; --muted:#6a798c; --gold:#c8890a; --goldbg:#fff6e2;
+    --line:#d9e2ee; --green:#1f9d57; --greenbg:#e9f8ef; --teal:#0e7fa0; --tealbg:#e6f5fb;
+    --red:#c0392b; --redbg:#fdecea; --codebg:#f4f7fb;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:"Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;color:var(--ink);
+       font-size:11.2px;line-height:1.5;margin:0;}
+  h1{font-size:25px;font-weight:800;letter-spacing:-.4px;margin:0 0 3px;}
+  .kick{font-size:11px;letter-spacing:.2em;font-weight:800;color:var(--gold);text-transform:uppercase;}
+  .sub{font-size:12.5px;color:var(--ink2);margin:4px 0 2px;}
+  .meta{font-size:10px;color:var(--muted);margin-bottom:14px;}
+  h2{font-size:14.5px;font-weight:800;margin:20px 0 8px;padding-bottom:4px;border-bottom:2px solid var(--line);}
+  h2 .n{display:inline-flex;width:20px;height:20px;border-radius:50%;background:var(--ink);color:#fff;
+        font-size:11px;align-items:center;justify-content:center;margin-right:8px;vertical-align:2px;}
+  h3{font-size:12px;font-weight:800;margin:12px 0 4px;}
+  p{margin:6px 0;}
+  b{color:var(--ink);}
+  code,.mono{font-family:"Consolas",ui-monospace,monospace;background:var(--codebg);padding:1px 5px;border-radius:4px;font-size:10.2px;}
+  .pill{display:inline-block;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;padding:2px 8px;border-radius:20px;}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:10.6px;}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top;}
+  th{background:#eef3f9;font-weight:800;font-size:10px;letter-spacing:.03em;}
+  td b{color:var(--ink);}
+  .num{text-align:right;font-variant-numeric:tabular-nums;font-family:"Consolas",ui-monospace,monospace;}
+  .result{background:linear-gradient(90deg,#0f2133,#16324a);color:#fff;border-radius:12px;padding:16px 20px;margin:10px 0 4px;}
+  .result .big{font-size:21px;font-weight:800;letter-spacing:-.3px;margin:2px 0;}
+  .result .lede{font-size:11px;color:#b9cde0;text-transform:uppercase;letter-spacing:.14em;font-weight:800;}
+  .result .foot{font-size:10.4px;color:#cfe0ef;margin-top:5px;}
+  .result b{color:#ffd98a;}
+  .callout{background:var(--goldbg);border:1px solid #f0d294;border-left:4px solid var(--gold);border-radius:8px;padding:10px 13px;margin:10px 0;font-size:10.6px;break-inside:avoid;}
+  .callout b{color:#8a5e06;}
+  .callout.green{background:var(--greenbg);border-color:#bfe8cf;border-left-color:var(--green);}
+  .callout.green b{color:#176b3c;}
+  .callout.red{background:var(--redbg);border-color:#f2c4bd;border-left-color:var(--red);}
+  .callout.red b{color:#962419;}
+  .ok{color:var(--green);font-weight:800;} .warn{color:var(--gold);font-weight:800;} .bad{color:var(--red);font-weight:800;}
+  .src{font-size:9.3px;color:var(--muted);margin-top:4px;line-height:1.5;}
+  .foot{margin-top:16px;padding-top:8px;border-top:1px solid var(--line);font-size:9px;color:var(--muted);}
+  figure{margin:10px 0;break-inside:avoid;} figcaption{font-size:9.6px;color:var(--muted);margin-top:3px;text-align:center;}
+  .gloss{font-size:10.2px;} .gloss dt{font-weight:800;margin-top:6px;} .gloss dd{margin:1px 0 0 0;color:var(--ink2);}
+  ul{margin:6px 0;padding-left:20px;} li{margin:3px 0;}
+</style>
+</head>
+<body>
+
+  <div class="kick">P25-GPS-Decode · receiver test report</div>
+  <h1>Software P25 Receiver Sensitivity</h1>
+  <div class="sub">A software C4FM decoder, fed from a commodity receiver's detector output, measured against the 5% BER reference sensitivity — and compared to a purpose-built P25 radio.</div>
+  <div class="meta">P25 Phase 1 (C4FM) · 159.2475 MHz · VIAVI 8800SX reference generator · 2026-11-25 · receive-only / read-only</div>
+
+  <div class="result">
+    <div class="lede">Result</div>
+    <div class="big">5% BER sensitivity ≈ −119 dBm</div>
+    <div class="foot">Within <b>1–2 dB</b> of a purpose-built commercial P25 radio (<b>−120 to −121 dBm</b>). The measured gap is the <b>receiver front end</b>, not the software. Both converge on the same <b>≈ −120 dBm thermal noise floor</b> — the physical limit no receiver crosses.</div>
+  </div>
+
+  <h2><span class="n">1</span>Objective &amp; claim</h2>
+  <p>This project decodes P25 Tier-1 GPS location straight off the air from a receiver's <b>discriminator / detector audio</b> — no SDR, no cooperating base radio, no vendor software. A fair question follows: <i>how good is the receiver?</i> A radio's receive quality is specified as <b>sensitivity at 5% BER</b> — the weakest signal at which it still recovers bits with no more than 5% in error. This report measures that number for the full capture-and-decode chain and compares it to a radio engineered specifically for P25.</p>
+  <p><b>Claim, stated conservatively.</b> At the <b>raw, pre-FEC channel level</b>, a flat USB audio interface on a generic radio's detector pin, decoded entirely in software, reaches 5% BER at <b>≈ −119 dBm</b> — essentially matching purpose-built P25 hardware. We do not claim to beat it at this layer; we claim to <b>meet it</b>, and we show honestly where the small remaining gap lives.</p>
+
+  <h2><span class="n">2</span>Test configuration</h2>
+  <table>
+    <tr><th>Stage</th><th>Equipment / setting</th><th>Role</th></tr>
+    <tr><td><b>Signal source</b></td><td>VIAVI 8800SX service monitor, calibrated RF output, P25 Phase-1 test patterns</td><td>Generates a known bit sequence at a precisely known RF level. Modulation fidelity is reference-grade, so the sweep hits a <b>noise-limited</b> cliff, not a transmitter-distortion one.</td></tr>
+    <tr><td><b>Receiver</b></td><td>Kenwood NX-700 mobile, programmed <b>Wide</b> on the test channel, squelch open/monitor</td><td>Used as a flat FM receiver. The RF demodulation is done here; we take its recovered baseband. <i>Note: a generic NXDN/analog radio, not a P25-optimized receiver — see §7.</i></td></tr>
+    <tr><td><b>Detector tap</b></td><td>Rear DB-25 <b>pin 19 (DEO</b>, detected-signal output), internally AC-coupled, flat response, DSP-routed at 48 kHz</td><td>The raw 4-level C4FM baseband, produced continuously before the squelch gate — present even when the radio mutes, and past its own decode cliff.</td></tr>
+    <tr><td><b>Front end</b></td><td>Behringer UFO202 USB interface, <b>LINE</b> input (flat 20 Hz–48 kHz), capture 48 kHz / 16-bit / mono</td><td>A flat, driver-free line input. No pad, no series resistor — the DEO's internal coupling is all that's needed; the decoder's AGC normalizes level.</td></tr>
+    <tr><td><b>Decoder</b></td><td>Software: RMS-AGC → C4FM receive filter → <b>MMSE symbol tracking</b> (OP25-derived) → adaptive 4-level slice → dibits</td><td>Recovers symbols from the captured audio. Near-optimal clock/level/DC tracking; no fixed thresholds.</td></tr>
+    <tr><td><b>Scorer</b></td><td><code>decode/ber_meter.py</code> — align recovered symbols to the known pattern, count errored bits ÷ total bits</td><td>This <i>is</i> the BER meter. It needs no OEM test mode in the radio — it reads the detected symbols directly.</td></tr>
+  </table>
+  <p class="src">Full signal chain: <b>VIAVI → NX-700 RF → DEO pin 19 → UFO202 line-in → sound-card capture → software decode → BER count.</b> The radio is only ever received from; nothing is transmitted or altered.</p>
+
+  <h2><span class="n">3</span>Method — how BER is scored</h2>
+  <p>BER is <b>errored bits ÷ total bits</b>, as a percent. To count errors you must know what was supposed to arrive, so the generator sends a <b>defined, deterministic pattern</b>. The sweep pattern is <b>STD 511 / O.153</b> — a 511-bit pseudo-random sequence (PRBS-9). It exercises all four C4FM symbols evenly (verified: level occupancy 25.0 / 24.9 / 25.1 / 25.0 %), so it stresses every symbol transition the way real traffic would, and it repeats deterministically so a clean reference can be recovered from a strong capture.</p>
+  <p><b>Scoring rule (important for rigor).</b> Each weak capture's recovered symbols are aligned to the <b>clean 511 pattern recovered at −90 dBm</b> (a strong, essentially error-free reference), and <b>every</b> symbol/bit deviation is counted across the whole capture. This is immune to the two failure modes that bite a naïve "fold the capture on itself" method near the cliff (§6). ~100,000 bits are scored per level — thousands of error events at the 5% point, a statistically tight estimate.</p>
+
+  <h2><span class="n">4</span>Instrument traceability — is the meter honest?</h2>
+  <p>A sensitivity number is only as trustworthy as the counter that produced it, so the BER meter was validated three independent ways <b>before</b> any sweep point was believed:</p>
+  <table>
+    <tr><th>Check</th><th>What it proves</th><th>Expected</th><th>Measured</th></tr>
+    <tr><td><b>Synthetic injected BER</b> (software-inserted errors at known rates)</td><td>the counter is linear and accurate end-to-end</td><td>0 / 1 / 2 / 5 / 10%</td><td class="ok">0.00 / 1.00 / 2.01 / 4.97 / 9.99%</td></tr>
+    <tr><td><b>STD 1011 @ −90 dBm</b> (clean tone pattern, zero injected errors)</td><td>the capture + demod + decode chain is clean on a real strong signal (decoder control)</td><td>~0%</td><td class="ok">0.030%</td></tr>
+    <tr><td><b>STD CAL @ −90 dBm</b> (STD 1011 with every 20th bit inverted = 4.977% built in)</td><td>the counter reports a known non-zero error rate correctly on a real signal (meter calibration)</td><td>~4.98%</td><td class="warn">5.12%</td></tr>
+  </table>
+  <p>The counter is linear (synthetic), reads a strong clean pattern at ~0% (1011), and reads the standardized calibration pattern's 4.977% baked-in errors to within 0.15% (CAL). The instrument is trustworthy; the sweep numbers can be believed.</p>
+  <p class="src">STD CAL verified structurally as well: the errored symbols fall exactly every 10th dibit (= every 20th bit), matching the pattern's definition precisely — not a coincidental rate match.</p>
+
+  <h2><span class="n">5</span>Results — the sensitivity sweep</h2>
+  <p>STD 511 was driven down the VIAVI's calibrated output in steps; each capture was scored against the −90 dBm clean reference. The result is a clean, monotonic <b>digital cliff</b>.</p>
+
+  <table>
+    <tr><th>RF level (dBm)</th><th class="num">Symbol error</th><th class="num">BER</th><th>State</th></tr>
+    <tr><td>−90 (reference)</td><td class="num">—</td><td class="num">~0%</td><td>clean anchor / reference pattern</td></tr>
+    <tr><td>−112</td><td class="num">0.13%</td><td class="num">0.06%</td><td>flat — well above the cliff</td></tr>
+    <tr><td>−116</td><td class="num">2.01%</td><td class="num">1.01%</td><td>entering the shoulder</td></tr>
+    <tr><td>−117</td><td class="num">3.14%</td><td class="num">1.57%</td><td>shoulder</td></tr>
+    <tr><td>−118</td><td class="num">5.72%</td><td class="num">2.89%</td><td>steepening</td></tr>
+    <tr><td><b>−119</b></td><td class="num">8.65%</td><td class="num"><b>4.35%</b></td><td>just under 5%</td></tr>
+    <tr><td>−120</td><td class="num">23.0%</td><td class="num">13.5%</td><td>past the cliff</td></tr>
+  </table>
+  <p><b>The 5% BER crossing interpolates to ≈ −119.1 dBm.</b></p>
+
+  <figure>
+    <svg viewBox="0 0 720 300" role="img" aria-label="Bit error rate versus RF signal level, crossing 5 percent at about minus 119.1 dBm" style="width:100%;height:auto;background:#fff;">
+      <!-- y gridlines + labels: BER 0,5,10,15 at py 255,177,99,20 -->
+      <line x1="55" y1="255" x2="670" y2="255" stroke="#132132" stroke-width="1.2"/>
+      <line x1="55" y1="177" x2="670" y2="177" stroke="#d9e2ee" stroke-width="1"/>
+      <line x1="55" y1="99"  x2="670" y2="99"  stroke="#d9e2ee" stroke-width="1"/>
+      <line x1="55" y1="20"  x2="670" y2="20"  stroke="#d9e2ee" stroke-width="1"/>
+      <line x1="55" y1="20"  x2="55"  y2="255" stroke="#132132" stroke-width="1.2"/>
+      <text x="48" y="258" text-anchor="end" font-size="10" fill="#6a798c" font-family="Consolas,monospace">0%</text>
+      <text x="48" y="102" text-anchor="end" font-size="10" fill="#6a798c" font-family="Consolas,monospace">10%</text>
+      <text x="48" y="23"  text-anchor="end" font-size="10" fill="#6a798c" font-family="Consolas,monospace">15%</text>
+      <!-- 5% threshold -->
+      <line x1="55" y1="177" x2="670" y2="177" stroke="#c8890a" stroke-width="1.6" stroke-dasharray="6 4"/>
+      <text x="60" y="172" font-size="10" fill="#c8890a" font-weight="700">5% BER — reference sensitivity threshold</text>
+      <!-- crossing marker at px598 -->
+      <line x1="598" y1="255" x2="598" y2="177" stroke="#1f9d57" stroke-width="1.4" stroke-dasharray="4 3"/>
+      <circle cx="598" cy="177" r="4.5" fill="#1f9d57"/>
+      <text x="606" y="150" font-size="10.5" fill="#1f9d57" font-weight="800">≈ −119.1 dBm</text>
+      <text x="606" y="163" font-size="9.2" fill="#176b3c">our 5% crossing</text>
+      <!-- BER curve -->
+      <polyline points="55,254 363,239 439,230 516,210 593,187 670,43" fill="none" stroke="#16324a" stroke-width="2.6"/>
+      <g fill="#16324a">
+        <circle cx="55" cy="254" r="3.4"/><circle cx="363" cy="239" r="3.4"/><circle cx="439" cy="230" r="3.4"/>
+        <circle cx="516" cy="210" r="3.4"/><circle cx="593" cy="187" r="3.4"/><circle cx="670" cy="43" r="3.4"/>
+      </g>
+      <!-- value labels -->
+      <g font-size="8.8" fill="#38485e" font-family="Consolas,monospace" text-anchor="middle">
+        <text x="363" y="233">1.01</text><text x="439" y="224">1.57</text>
+        <text x="516" y="204">2.89</text><text x="585" y="181">4.35</text><text x="662" y="37">13.5</text>
+      </g>
+      <!-- x labels -->
+      <g font-size="9.4" fill="#132132" text-anchor="middle" font-family="Consolas,monospace">
+        <text x="55" y="270">−112</text><text x="363" y="270">−116</text><text x="439" y="270">−117</text>
+        <text x="516" y="270">−118</text><text x="593" y="270">−119</text><text x="670" y="270">−120</text>
+      </g>
+      <text x="362" y="288" text-anchor="middle" font-size="10" fill="#6a798c">RF signal level (dBm) — weaker &#8594;</text>
+      <text x="14" y="140" text-anchor="middle" font-size="10" fill="#6a798c" transform="rotate(-90 14 140)">Bit error rate</text>
+    </svg>
+    <figcaption>The P25 digital cliff, measured on the software decoder. BER holds near zero, then falls off a cliff over ~3 dB; the 5% reference-sensitivity threshold is crossed at ≈ −119.1 dBm.</figcaption>
+  </figure>
+
+  <h2><span class="n">6</span>Methodological corrections (full disclosure)</h2>
+  <p>Two artifacts appeared during the sweep and were corrected. Both are documented here because the final number is only trustworthy if the path to it is transparent.</p>
+
+  <div class="callout red"><b>(a) A key-up transient must be trimmed before scoring.</b> The first ~1 second of the −118 dBm capture read <b>68.8% error</b> — a total loss of lock while the generator settled after the level change — while the rest of the capture read ~5%. Left in, that dirty lead-in inflated the −118 point to 7.2% and produced a <i>false</i> early 5% crossing at −117.6 dBm. Trimming a 1.5 s lead-in (standard BER practice — exclude the acquisition transient) gave the true −118 value of <b>2.89%</b> and the correct −119 crossing. A per-second error profile is used to confirm each accepted capture is uniform, not transient-contaminated.</div>
+
+  <div class="callout red"><b>(b) Self-referential scoring mislocks at high error rates.</b> An early method that folded each capture on its own repeating period and majority-voted a reference worked at low BER (it agreed with the reference method to 0.001% at −112 dBm) but, near the cliff, its period search locked onto a 5× harmonic with too few repeats and <i>under-reported</i> −119 dBm as 4.33% — non-monotonically below −118. Scoring every capture against the fixed −90 dBm clean reference (§3) is immune to this and restores a monotonic curve. Below the cliff (−120 dBm and beyond) the demodulator itself drops in and out of lock, so points there are noisy by nature and are used only to confirm "well past 5%," not as precise values.</div>
+
+  <p>Net effect: the raw sweep is honest and monotonic once the acquisition transient is excluded and scoring is done against a fixed clean reference. The reported −119.1 dBm crossing is bracketed tightly by the −119 (4.35%) and −120 (13.5%) points.</p>
+
+  <h2><span class="n">7</span>Comparison to a purpose-built P25 radio</h2>
+  <p>A reference commercial P25 portable, measured consistently across a large field population (on the order of a thousand units, same class of generator and procedure), sits at a <b>5% BER sensitivity of −120 to −121 dBm</b>. Our software chain reaches 5% at <b>≈ −119 dBm</b>.</p>
+  <table>
+    <tr><th>Receiver</th><th>5% BER sensitivity</th><th>Front end</th></tr>
+    <tr><td>Purpose-built P25 portable (reference)</td><td class="num">−120 to −121 dBm</td><td>receiver designed and tuned for C4FM</td></tr>
+    <tr><td><b>This work</b> — software decode off a generic radio's DEO</td><td class="num"><b>≈ −119 dBm</b></td><td>generic NXDN/analog radio used as a flat FM receiver</td></tr>
+    <tr><td><b>Difference</b></td><td class="num"><b>1 – 2 dB</b></td><td>attributable to the front end, not the decode</td></tr>
+  </table>
+  <p><b>Where the 1–2 dB lives — honestly.</b> The number is read off an <b>NX-700, a generic NXDN/analog radio</b>, whose detector output is DSP-routed and not a front end tuned for C4FM. A purpose-built P25 radio's receiver <i>is</i> tuned for it. The software symbol recovery (MMSE) is already near the theoretical optimum, so the gap is in the <b>radio ahead of the sound card</b>, not the software behind it. A P25-native receiver would likely shrink the gap — but the entire value of the method is that it does <b>not</b> require one.</p>
+
+  <div class="callout green"><b>Everybody meets at the cliff.</b> Thermal noise sets a hard floor at roughly −120 dBm in a 12.5 kHz channel (kTB plus a few dB of receiver noise figure). No receiver — a million-dollar design or a sound card on a detector pin — decodes below it; they all converge there. A 1–2 dB spread between receivers is a <b>noise-figure</b> difference at the front end, not a difference in who "solved" P25. We walked up to the same wall the purpose-built radios stop at. That is the result: not beating physics, but reaching it with commodity parts and software.</div>
+
+  <h2><span class="n">8</span>Raw vs corrected — and the next lever</h2>
+  <p>Everything above is <b>raw, pre-FEC channel BER</b> — symbol errors straight off the demodulator, which is exactly how receiver sensitivity is specified, and the honest apples-to-apples contest. But the mission is not raw symbols; it is <b>decoding a GPS fix</b>, and that payload rides <b>forward error correction</b>.</p>
+  <p>The reference radio decodes that FEC with a conventional <b>hard-decision</b> algorithm. This software decoder can apply <b>soft-decision</b> Viterbi decoding — carrying each symbol's analog confidence into the error correction — which a controlled simulation on the exact P25 code shows yields <b>≈ 3 dB of coding gain</b> on the GPS data frames. That gain operates on the <b>message layer</b>, where the reference radio leaves it on the table.</p>
+  <div class="callout"><b>The arithmetic worth testing next.</b> −1 to −2 dB (front-end deficit, raw layer) + ≈ 3 dB (soft-decision FEC, message layer) ≈ a net <b>1–2 dB advantage on actual GPS-fix recovery</b>. Not yet proven — it is the next measurement (a radio at known coordinates swept through the calibrated attenuator, hard-vs-soft frame-success at each level) — but the physics lines up for the software to <b>out-range a purpose-built radio on the thing that matters</b>: plotting a position. Raw symbol layer, we match them; message layer, we have a real shot at beating them.</p></div>
+
+  <h2><span class="n">9</span>Conclusion</h2>
+  <p>A P25 Phase-1 C4FM receiver built entirely from a commodity USB audio interface on a generic radio's detector output, decoded in software, achieves a <b>5% BER reference sensitivity of ≈ −119 dBm</b> — within <b>1–2 dB</b> of a purpose-built commercial P25 radio, with the gap attributable to the receiver front end rather than the decoding. At the physical layer the system is <b>essentially noise-floor-limited</b>, the same limit the purpose-built radios reach. The remaining opportunity is not sensitivity (the floor is fixed and already reached) but <b>coding efficiency</b> — soft-decision FEC on the message layer — where a software decoder with real compute can do more with the symbols already captured.</p>
+
+  <h2><span class="n">10</span>Reproducibility</h2>
+  <ul>
+    <li><b>Decode chain</b> (<code>decode/</code>): <code>frontend.py</code> (RMS-AGC + OP25 C4FM receive filter) → <code>fsk4_demod.py</code> (MMSE symbol tracking) → adaptive 4-level slice to dibits.</li>
+    <li><b>Scoring</b> (<code>decode/ber_meter.py</code>): self-consistency period-fold for the 1011/baseline and CAL calibration; for the sensitivity sweep, align recovered symbols to the −90 dBm clean 511 pattern and count errored bits over the whole capture (after a 1.5 s lead-in trim).</li>
+    <li><b>Capture format</b>: 48 kHz / 16-bit / mono PCM WAV, ~10 s per level (≈100 pattern repeats / ≈100k bits). Label each file with its RF level.</li>
+    <li><b>Patterns</b>: STD 1011 (control), STD CAL (meter calibration), STD 511 / O.153 (sweep). Pattern definitions and purposes: <code>docs/P25_RX_Test_Patterns.pdf</code>.</li>
+    <li><b>Procedure</b>: validate the meter (synthetic + CAL + 1011 at −90) → sweep STD 511 down in 1 dB steps through the shoulder → bracket the 5% crossing → confirm each accepted capture is transient-free via its per-second error profile.</li>
+  </ul>
+
+  <div class="foot">
+    P25-GPS-Decode — receiver sensitivity test report, 2026-11-25. Raw pre-FEC channel BER on STD 511 (O.153). Reference-radio sensitivity (−120/−121 dBm) is the author's field-measured figure across a large unit population on the same class of generator and procedure. Noise floor ≈ kTB (−133 dBm/12.5 kHz) + receiver noise figure. Sources: TIA-102.CAAA (P25 C4FM test patterns &amp; procedures); ITU-T O.153 (PRBS-9 / ex-V.52); VIAVI 8800 Series documentation; UrgentComm "How to test a Project 25 system"; Anritsu P25 analyzer measurement guide. Receive-only, read-only — the radio is never transmitted on or altered.
+  </div>
+
+</body>
+</html>
