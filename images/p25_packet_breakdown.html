@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  :root{
+    --ink:#132132; --ink2:#3a4a60; --muted:#6b7a8d;
+    --gold:#e3a008; --goldbg:#fff6df; --goldline:#f0c14b;
+    --green:#1f9d57; --greenbg:#e9f8ef; --greenline:#a8e2c0;
+    --teal:#0e8aa8; --tealbg:#e6f6fb; --tealline:#a3dcec;
+    --card:#ffffff; --line:#dce5ef;
+    --sync:#8a5cf6; --nid:#e3a008; --pay:#3a9bd6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:"Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;
+    background:linear-gradient(180deg,#eaf2fb 0%,#f6f9fd 42%,#ffffff 100%);
+    color:var(--ink); -webkit-font-smoothing:antialiased;
+  }
+  .sheet{width:1480px;padding:48px 52px 44px;}
+  .head{text-align:center;margin-bottom:30px;}
+  .kicker{font-size:15px;letter-spacing:.22em;font-weight:700;color:var(--gold);text-transform:uppercase;}
+  h1{font-size:44px;line-height:1.05;font-weight:800;margin:8px 0 10px;letter-spacing:-.5px;}
+  .sub{font-size:19px;color:var(--ink2);font-weight:500;}
+  .sub b{color:var(--ink);}
+
+  .sectlabel{display:flex;align-items:center;gap:12px;margin:30px 2px 14px;}
+  .sectlabel .n{width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .sectlabel h2{font-size:21px;font-weight:800;letter-spacing:-.2px;}
+  .sectlabel .tag{margin-left:auto;font-size:14px;color:var(--muted);font-weight:600;}
+
+  /* frame anatomy bar */
+  .frame{display:flex;border:2px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 8px 22px rgba(20,40,70,.06);background:#fff;}
+  .seg{padding:18px 20px;position:relative;}
+  .seg + .seg{border-left:2px dashed #cdd8e6;}
+  .seg .st{font-size:12px;letter-spacing:.14em;font-weight:800;text-transform:uppercase;}
+  .seg .big{font-size:20px;font-weight:800;margin:4px 0 2px;letter-spacing:-.2px;}
+  .seg .mono{font-family:"Consolas",ui-monospace,monospace;font-size:14px;color:var(--ink2);font-weight:700;}
+  .seg .d{font-size:13.5px;color:var(--muted);margin-top:5px;line-height:1.35;}
+  .seg.sync{flex:0 0 300px;background:#f6f1ff;border-top:5px solid var(--sync);}
+  .seg.sync .st{color:var(--sync);}
+  .seg.nid{flex:0 0 360px;background:var(--goldbg);border-top:5px solid var(--nid);}
+  .seg.nid .st{color:var(--gold);}
+  .seg.pay{flex:1 1 auto;background:#eef7fd;border-top:5px solid var(--pay);}
+  .seg.pay .st{color:var(--pay);}
+  .framefoot{text-align:center;font-size:14px;color:var(--muted);margin-top:10px;font-weight:600;}
+  .framefoot b{color:var(--ink2);}
+
+  /* pipeline */
+  .pipe{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;position:relative;}
+  .step{background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:18px 18px 16px;box-shadow:0 6px 16px rgba(20,40,70,.05);position:relative;}
+  .step .top{display:flex;align-items:center;gap:11px;margin-bottom:9px;}
+  .disc{width:34px;height:34px;border-radius:50%;background:var(--goldbg);border:2px solid var(--goldline);color:var(--gold);display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .disc svg{width:19px;height:19px;}
+  .step h3{font-size:16.5px;font-weight:800;letter-spacing:-.2px;}
+  .step p{font-size:13.6px;line-height:1.42;color:var(--ink2);}
+  .step .mono{font-family:"Consolas",ui-monospace,monospace;font-weight:700;color:var(--ink);font-size:13px;}
+  .arrow{position:absolute;top:50%;right:-15px;transform:translateY(-50%);z-index:5;color:var(--goldline);}
+  .arrow svg{width:22px;height:22px;display:block;}
+
+  /* fork */
+  .forklabel{text-align:center;margin:26px 0 12px;font-size:15px;font-weight:700;color:var(--ink2);}
+  .forklabel .mono{font-family:"Consolas",ui-monospace,monospace;color:var(--gold);font-weight:800;}
+  .branches{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+  .branch{border-radius:18px;padding:22px 24px;border:2px solid;position:relative;}
+  .branch.data{background:var(--greenbg);border-color:var(--greenline);}
+  .branch.voice{background:var(--tealbg);border-color:var(--tealline);}
+  .branch .bh{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+  .branch .bi{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;color:#fff;}
+  .branch.data .bi{background:var(--green);}
+  .branch.voice .bi{background:var(--teal);}
+  .branch .bi svg{width:23px;height:23px;}
+  .branch .bt .duid{font-size:12px;letter-spacing:.1em;font-weight:800;text-transform:uppercase;}
+  .branch.data .duid{color:var(--green);}
+  .branch.voice .duid{color:var(--teal);}
+  .branch .bt h3{font-size:20px;font-weight:800;letter-spacing:-.3px;}
+  .chain{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:4px 0 14px;}
+  .chip{background:#fff;border:1.5px solid;border-radius:9px;padding:6px 11px;font-size:13px;font-weight:700;color:var(--ink);}
+  .branch.data .chip{border-color:var(--greenline);}
+  .branch.voice .chip{border-color:var(--tealline);}
+  .chev{color:#9fb0c2;font-weight:800;font-size:14px;}
+  .out{display:flex;align-items:center;gap:13px;background:#fff;border-radius:13px;padding:14px 16px;border:1.5px dashed;}
+  .branch.data .out{border-color:var(--greenline);}
+  .branch.voice .out{border-color:var(--tealline);}
+  .out .oi{flex:0 0 auto;}
+  .out .oi svg{width:30px;height:30px;}
+  .branch.data .out .oi{color:var(--green);}
+  .branch.voice .out .oi{color:var(--teal);}
+  .out .ot{font-size:14px;line-height:1.4;color:var(--ink2);}
+  .out .ot b{color:var(--ink);font-size:15px;}
+  .out .mono{font-family:"Consolas",ui-monospace,monospace;font-weight:700;color:var(--ink);font-size:13.5px;}
+
+  .finish{margin-top:24px;display:flex;align-items:center;gap:18px;background:var(--ink);color:#fff;border-radius:18px;padding:22px 28px;box-shadow:0 12px 28px rgba(20,40,70,.18);}
+  .finish .fi{width:52px;height:52px;border-radius:14px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex:0 0 auto;color:var(--goldline);}
+  .finish .fi svg{width:30px;height:30px;}
+  .finish h3{font-size:22px;font-weight:800;margin-bottom:3px;}
+  .finish p{font-size:15.5px;color:#c9d6e6;line-height:1.4;}
+  .finish p b{color:#fff;}
+
+  .foot{margin-top:22px;text-align:center;font-size:13px;color:var(--muted);font-weight:600;letter-spacing:.02em;}
+  .foot b{color:var(--ink2);}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <div class="head">
+    <div class="kicker">P25 Phase 1 · Tier-1 Decode</div>
+    <h1>How a P25 Packet Is Broken Down</h1>
+    <div class="sub">One keyed radio burst &rarr; <b>a position on the map</b> and <b>a voice on the air</b> — in software, receive-only, no SDR.</div>
+  </div>
+
+  <!-- ANATOMY -->
+  <div class="sectlabel">
+    <div class="n">A</div><h2>The packet — what one frame carries</h2>
+    <div class="tag">1728 bits · 864 dibits · one frame</div>
+  </div>
+  <div class="frame">
+    <div class="seg sync">
+      <div class="st">Frame sync</div>
+      <div class="big">48 bits</div>
+      <div class="mono">0x5575F5FF77FF</div>
+      <div class="d">A fixed marker — "a frame starts here." Every frame opens with it, 864 dibits apart.</div>
+    </div>
+    <div class="seg nid">
+      <div class="st">NID — network ID</div>
+      <div class="big">64 bits</div>
+      <div class="mono">NAC + DUID</div>
+      <div class="d">BCH-protected. <b>NAC</b> = which system (12-bit). <b>DUID</b> = what kind of frame (4-bit).</div>
+    </div>
+    <div class="seg pay">
+      <div class="st">Payload</div>
+      <div class="big">Data or voice blocks</div>
+      <div class="mono">+ status symbol every 36th dibit</div>
+      <div class="d">FEC-coded and interleaved. For GPS it's a data PDU; for talk it's the IMBE voice of an LDU. The status symbols are housekeeping woven through — stripped before decoding.</div>
+    </div>
+  </div>
+  <div class="framefoot"><b>C4FM:</b> 4 signal levels &middot; 4800 symbols/sec &middot; 2 bits per symbol (a "dibit")</div>
+
+  <!-- PIPELINE -->
+  <div class="sectlabel">
+    <div class="n">B</div><h2>The breakdown — peeling off each layer</h2>
+    <div class="tag">the common path, every frame</div>
+  </div>
+  <div class="pipe">
+    <div class="step">
+      <div class="top"><div class="disc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 18c0-4 2-6 2-6M19 18c0-4-2-6-2-6"/><path d="M8 15c0-2 1-3 1-3M16 15c0-2-1-3-1-3"/><circle cx="12" cy="11" r="1.6"/><path d="M12 12.6V21"/></svg></div><h3>1 · Detector audio</h3></div>
+      <p>The radio FM-detects the signal to a flat <b>4-level C4FM baseband</b> (or an SDR's IQ &rarr; FM-detect). The hard RF work is already done — we only ever <b>receive</b>.</p>
+      <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+    </div>
+    <div class="step">
+      <div class="top"><div class="disc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17h4V7h4v13h4V4h4v16"/></svg></div><h3>2 · Recover symbols</h3></div>
+      <p>An <b>MMSE tracking loop</b> locks the clock and level and slices the baseband into 4 levels &rarr; <b>dibits</b> (2 bits each), 4800 a second.</p>
+      <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+    </div>
+    <div class="step">
+      <div class="top"><div class="disc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><h3>3 · Lock the frame</h3></div>
+      <p>Scan the dibit stream for the sync word <span class="mono">0x5575F5FF77FF</span>. It marks the start of every 1728-bit frame and aligns everything after it.</p>
+      <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+    </div>
+    <div class="step">
+      <div class="top"><div class="disc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 11.4 13 3.8a2 2 0 0 0-1.4-.6H5a2 2 0 0 0-2 2v6.6a2 2 0 0 0 .6 1.4l7.6 7.6a2 2 0 0 0 2.8 0l5.6-5.6a2 2 0 0 0 0-2.8Z"/><circle cx="7.5" cy="7.5" r="1.3"/></svg></div><h3>4 · Read the NID</h3></div>
+      <p>BCH-decode the 64-bit NID &rarr; <b>NAC</b> (which system) and <b>DUID</b> (which frame type). The DUID decides what happens next.</p>
+    </div>
+  </div>
+
+  <!-- FORK -->
+  <div class="forklabel">The <span class="mono">DUID</span> forks the frame &mdash; data goes to the map, voice goes to the vocoder &darr;</div>
+  <div class="branches">
+
+    <div class="branch data">
+      <div class="bh">
+        <div class="bi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z"/><circle cx="12" cy="10" r="2.4"/></svg></div>
+        <div class="bt"><div class="duid">DUID 0xC · Data PDU</div><h3>Position &amp; ID</h3></div>
+      </div>
+      <div class="chain">
+        <span class="chip">strip status symbols</span><span class="chev">&rsaquo;</span>
+        <span class="chip">de-interleave</span><span class="chev">&rsaquo;</span>
+        <span class="chip">Viterbi FEC</span><span class="chev">&rsaquo;</span>
+        <span class="chip">CRC check</span>
+      </div>
+      <div class="out">
+        <div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div>
+        <div class="ot">The recovered bytes <b>are the NMEA</b>:<br><span class="mono">$GNGGA</span> position + <span class="mono">$PP25,&lt;id&gt;</span> — the transmitting radio's own unit ID.</div>
+      </div>
+    </div>
+
+    <div class="branch voice">
+      <div class="bh">
+        <div class="bi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4Z"/><path d="M17 9a4 4 0 0 1 0 6M19.5 6.5a8 8 0 0 1 0 11"/></svg></div>
+        <div class="bt"><div class="duid">DUID 0x5 / 0xA · Voice LDU</div><h3>Hear the fleet</h3></div>
+      </div>
+      <div class="chain">
+        <span class="chip">pull 88-bit IMBE frames</span><span class="chev">&rsaquo;</span>
+        <span class="chip">mbelib vocoder</span><span class="chev">&rsaquo;</span>
+        <span class="chip">PCM audio</span>
+      </div>
+      <div class="out">
+        <div class="oi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z"/><path d="M6 11a6 6 0 0 0 12 0M12 18v3"/></svg></div>
+        <div class="ot"><b>Voice out</b>, free software (IMBE patent expired).<br>The link-control carries the <b>source ID</b> = who's talking &rarr; that unit lights up on the map.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FINISH -->
+  <div class="finish">
+    <div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z"/><path d="M9 3v15M15 6v15"/></svg></div>
+    <div>
+      <h3>Plotted live on your own offline map</h3>
+      <p>Every unit by its ID, your own "you are here," and now the <b>voice</b> — <b>off the air, free, on a plain PC</b>. No base station, no cloud, no cooperation from the radio system.</p>
+    </div>
+  </div>
+
+  <div class="foot">P25-GPS-Decode &middot; discriminator audio or SDR IQ &rarr; symbols &rarr; frames &rarr; data PDU / voice LDU &middot; <b>receive-only, standardized TIA-102 Tier-1</b></div>
+
+</div>
+</body>
+</html>
