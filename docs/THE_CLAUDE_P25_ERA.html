@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: Letter; margin: 0.7in 0.75in; }
+  :root{
+    --ink:#132132; --ink2:#38485e; --muted:#6a798c; --gold:#c8890a; --goldbg:#fff6e2;
+    --line:#d9e2ee; --green:#1f9d57; --greenbg:#e9f8ef; --teal:#0e7fa0; --tealbg:#e6f5fb;
+    --red:#c0392b; --redbg:#fdecea; --codebg:#f4f7fb;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:"Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;color:var(--ink);
+       font-size:11.2px;line-height:1.5;margin:0;}
+  h1{font-size:26px;font-weight:800;letter-spacing:-.4px;margin:0 0 3px;}
+  .kick{font-size:11px;letter-spacing:.2em;font-weight:800;color:var(--gold);text-transform:uppercase;}
+  .sub{font-size:12.5px;color:var(--ink2);margin:4px 0 2px;}
+  .meta{font-size:10px;color:var(--muted);margin-bottom:14px;}
+  h2{font-size:14.5px;font-weight:800;margin:20px 0 8px;padding-bottom:4px;border-bottom:2px solid var(--line);}
+  h2 .n{display:inline-flex;width:20px;height:20px;border-radius:50%;background:var(--ink);color:#fff;
+        font-size:11px;align-items:center;justify-content:center;margin-right:8px;vertical-align:2px;}
+  h3{font-size:12px;font-weight:800;margin:12px 0 4px;}
+  p{margin:6px 0;}
+  b{color:var(--ink);}
+  code,.mono{font-family:"Consolas",ui-monospace,monospace;background:var(--codebg);padding:1px 5px;border-radius:4px;font-size:10.2px;}
+  .pill{display:inline-block;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;padding:2px 8px;border-radius:20px;}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:10.6px;}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top;}
+  th{background:#eef3f9;font-weight:800;font-size:10px;letter-spacing:.03em;}
+  td b{color:var(--ink);}
+  .num{text-align:right;font-variant-numeric:tabular-nums;font-family:"Consolas",ui-monospace,monospace;}
+  .result{background:linear-gradient(90deg,#0f2133,#16324a);color:#fff;border-radius:12px;padding:16px 20px;margin:10px 0 4px;}
+  .result .big{font-size:21px;font-weight:800;letter-spacing:-.3px;margin:2px 0;}
+  .result .lede{font-size:11px;color:#b9cde0;text-transform:uppercase;letter-spacing:.14em;font-weight:800;}
+  .result .foot{font-size:10.4px;color:#cfe0ef;margin-top:5px;}
+  .result b{color:#ffd98a;}
+  .callout{background:var(--goldbg);border:1px solid #f0d294;border-left:4px solid var(--gold);border-radius:8px;padding:10px 13px;margin:10px 0;font-size:10.6px;break-inside:avoid;}
+  .callout b{color:#8a5e06;}
+  .callout.green{background:var(--greenbg);border-color:#bfe8cf;border-left-color:var(--green);}
+  .callout.green b{color:#176b3c;}
+  .callout.teal{background:var(--tealbg);border-color:#bfe3ef;border-left-color:var(--teal);}
+  .callout.teal b{color:#0a607a;}
+  .ok{color:var(--green);font-weight:800;} .warn{color:var(--gold);font-weight:800;} .bad{color:var(--red);font-weight:800;}
+  .src{font-size:9.3px;color:var(--muted);margin-top:4px;line-height:1.5;}
+  .foot{margin-top:16px;padding-top:8px;border-top:1px solid var(--line);font-size:9px;color:var(--muted);}
+  figure{margin:10px 0;break-inside:avoid;} figcaption{font-size:9.6px;color:var(--muted);margin-top:3px;text-align:center;}
+  ul{margin:6px 0;padding-left:20px;} li{margin:3px 0;}
+  .two{display:flex;gap:14px;} .two>div{flex:1;}
+  .stage{counter-reset:none;}
+  .chip{display:inline-block;background:var(--ink);color:#fff;border-radius:20px;font-size:9.5px;font-weight:800;padding:2px 10px;letter-spacing:.04em;}
+  .avoid{break-inside:avoid;}
+</style>
+</head>
+<body>
+
+  <div class="kick">P25-GPS-Decode · the record</div>
+  <h1>The Claude P25 Era</h1>
+  <div class="sub">The day a plain PC, a sound card, and free software read both P25 GPS location and P25 voice straight off the air — no SDR, no cooperating base station, no vendor infrastructure.</div>
+  <div class="meta">P25 Phase 1 conventional (C4FM) · built with AI assistance · receive-only / read-only · the full as-of-2026-11-25 record</div>
+
+  <div class="result">
+    <div class="lede">2026-11-25 — the day the wall came down</div>
+    <div class="big">Both halves of the holy grail, proven off the air</div>
+    <div class="foot"><b>Tier-1 GPS</b> (position + unit ID, exact vs ground truth) · <b>receiver sensitivity ≈ −119 dBm</b> (matching a purpose-built P25 radio) · <b>voice</b> (IMBE decoded in free software, ear-confirmed). Off the air, free, on a plain PC. The barrier that stood for years turned out to be <b>a clock that never drifts and a 72-dibit interleave table.</b></div>
+  </div>
+
+  <h2><span class="n">1</span>What was achieved</h2>
+  <p>In roughly <b>one day of focused bench work</b> (2026-11-23 → 2026-11-25), the project went from "can we decode P25 off the air at all" to both halves of the mission demonstrated end to end:</p>
+  <table>
+    <tr><th>Milestone</th><th>Proof</th><th>Date</th></tr>
+    <tr><td><b>Tier-1 GPS, off the air</b></td><td>Discriminator audio → sound card → software → the exact <code>$G?GGA</code> + <code>$PP25,&lt;unit-id&gt;</code> sentence the cooperating base reports, matching the answer key <b>character for character</b> — position <i>and</i> unit ID. First live decode off a real radio the moment it keyed up.</td><td>2026-11-23</td></tr>
+    <tr><td><b>Sensitivity matching the pros</b></td><td>Calibrated VIAVI sweep: software decoder's 5% BER point <b>≈ −119 dBm</b>, inside the −116…−119 dBm band of commercial P25 gear (a real BK measures −120/−121 over 1,000+ bench runs).</td><td>2026-11-25</td></tr>
+    <tr><td><b>Voice, in free software</b></td><td>The same decoder that locks the Phase-1 frames for GPS carries the 9 IMBE voice codewords per LDU. Pulled them out, fed mbelib's IMBE synthesizer → <b>"Testing 1234 1234" ×3</b>, decoded in our own software, no DVstick. Ear-confirmed.</td><td>2026-11-25</td></tr>
+  </table>
+  <div class="callout green"><b>The thin wall.</b> GPS-out-of-P25 had stood locked behind cooperating base stations, SDR toolchains, and vocoder patents. The actual barriers were a <b>timing loop over-correcting a clock that never drifts</b>, and a <b>published interleave table</b>. No magic — just the wall being thinner than everyone assumed, once the right ears and the right hands kept pushing.</div>
+
+  <h2><span class="n">2</span>The mission</h2>
+  <p>A long-held goal — the "original Holy Grail": get <b>GPS location out of P25 radio transmissions for firefighter safety</b>, with no dependence on a cooperating base radio handing over the data. This project is the independent, <b>passive, off-air</b> answer: any Phase-1 fleet, a $40–100 receiver, an offline map, nothing installed on the viewer.</p>
+  <p><b>P25 Tier 1</b> (TIA-102.BAJB) is the standardized GPS-over-P25 format — NMEA carried in data PDUs. That is the target; not Motorola's proprietary LRRP, not Tier 2. We decode <b>data and voice, never trunking</b> — the fleet is <b>Phase-1 conventional</b> (FDMA, single channel, voice on-channel, "the easy one").</p>
+
+  <h2><span class="n">3</span>The architecture — one engine, two housings</h2>
+  <p>The decode engine is the invention; everything else is packaging around the one question <i>"where does the operator need this to run?"</i></p>
+  <table>
+    <tr><th>Housing</th><th>What it is</th></tr>
+    <tr><td><b>The Traveler PC</b><br><span class="src">repo: The-P25-Project</span></td><td>The pure-PC product. On a normal PC: USB sound card on the detector audio + USB GPS + offline maps → a live fleet map in a browser tab, your own position in teal, name units from the map. One <code>.bat</code>, nothing to flash or SSH. <b>The VOICE build happens here.</b></td></tr>
+    <tr><td><b>The Universal Traveler</b><br><span class="src">repo: P25-GPS-Decode</span></td><td>The Group-Policy-locked-PC variant: the same decode on a ~$40 GL-MT3000 travel router, because agency PCs are locked down (Python and GitHub blocked). A <b>stdlib pure-Python decoder</b> runs on the router itself (the box's opkg has no numpy/scipy). A one-click Manager flashes a carton box to OpenWrt 24.10 and provisions it — proven end to end on a brand-new box.</td></tr>
+  </table>
+  <div class="callout teal"><b>The join (distribution).</b> Share the Traveler PC's screen + PC audio over Microsoft Teams and the product becomes a live, shareable P25 common operating picture — fleet map + positions + voice — through a tool the agency already runs. The capture half solved <i>acquisition</i> (off-air, cheap, no infrastructure); Teams solves <i>distribution</i> (one receiver PC = the headend, everyone else a viewer with nothing installed). A carried node = receiver + sound card + PC + USB GPS + Starlink Mini uplink + Teams out. No-cell wildland command is exactly where vendor AVL <i>cannot</i> deploy — so there is not just no product for sale, there is no alternative at all.</div>
+  <div class="callout"><b>Build rule.</b> Proven engines are kept as <b>sealed modules bolted in</b> (the bit-exact DSP kernel, the map server, the Garmin reader); the plumbing is built <b>clean, one coherent program</b> — never a patchwork of byte-for-byte old parts.</div>
+
+  <h2><span class="n">4</span>The GPS decode chain</h2>
+  <p>Discriminator audio in, NMEA out. All in <code>decode/</code> (numpy/scipy research engine) with a byte-equal stdlib twin in <code>decode_pure/</code> for the box.</p>
+  <table>
+    <tr><th>Stage</th><th>What happens</th></tr>
+    <tr><td><span class="chip">1 · Tap</span></td><td>Kenwood NX-700 DB-25 <b>pin 19 (DEO)</b>, radio set WIDE (external, no disassembly). DSP-routed flat detected-signal output. We only ever <b>receive</b>.</td></tr>
+    <tr><td><span class="chip">2 · Front end</span></td><td><code>frontend.py</code> — OP25's exact <code>rmsagc</code> → <code>c4fm</code> RX de-emphasis filter. (A hand-rolled moving-average pre-filter was the early fault; OP25's real filter fixed it.)</td></tr>
+    <tr><td><span class="chip">3 · Capture</span></td><td><b>48 kHz</b> native = integer 10 samples/symbol at 4800 baud; cleaner than 44.1 k resampled. Enhancements off, no clip, ~2 s lead-in.</td></tr>
+    <tr><td><span class="chip">4 · Demod</span></td><td><b>GPS path</b> → <code>fsk4_demod.py</code> MMSE tracking loop (clean eye; force-locks on the payload, never needs the NID). <b>NID/header path</b> → <b>fixed-timing demod</b> (no loop) — see §6.</td></tr>
+    <tr><td><span class="chip">5 · Slice</span></td><td>Adaptive 4-level <b>kmeans</b>, not fixed thresholds (levels can sit asymmetric).</td></tr>
+    <tr><td><span class="chip">6 · Frame sync</span></td><td><code>framer.py</code> — streaming sync on <code>0x5575F5FF77FF</code> → NID (BCH(63,16,11)) → <code>process_blocks</code>. DUID 5 = LDU1, 10 = LDU2.</td></tr>
+    <tr><td><span class="chip">7 · FEC</span></td><td><code>pdu_blocks.py</code> — 1/2 + 3/4 trellis/deinterleave + CRC, plus <b>Viterbi</b> on the rate-1/2 blocks (OP25's greedy decoder failed 4/12; Viterbi recovers 12/12 → the whole sentence).</td></tr>
+    <tr><td><span class="chip">8 · Acquire</span></td><td>Strict NID-validated framer, then a fallback <b>force-lock at the best-Hamming sync near the onset, validated by the payload itself</b> ($PP25 ID + readable GGA).</td></tr>
+  </table>
+  <p><b>Burst gate.</b> A packet is a <b>drop in the broadband discriminator noise</b> (FM quieting). Open the expensive decode only while quieted, on a <b>fixed-geometry window</b> from the onset (a variable window regressed to 1–2/10; fixed = 10/10).</p>
+  <p class="src"><b>Ground truth</b> = the base's RNDIS NMEA feed, diffed against every decode (position AND unit ID). The RNDIS <code>80…81</code> wrapper is base-local USB, never over-the-air — the OTA decode sees the P25 PDU. <b>Proven: 10/10 bursts on a clean capture, position + unit ID exact.</b></p>
+
+  <h2><span class="n">5</span>The sensitivity result</h2>
+  <div class="two">
+    <div>
+      <p>Front end settled: <b>Behringer UFO202 USB line-in</b> straight off the DEO (switch on LINE, not PHONO). The radio's internal 4.7 µF already AC-couples the DEO — it's literally a wire. A flat line input removes the mic path's eye-shaping + key-up DC transient (distortion, not noise — so it stacks with the soft-decision gain).</p>
+      <p>The sweep (STD 511 / O.153, scored vs the −90 dBm clean reference) is a clean monotonic <b>digital cliff</b>. The 5% crossing interpolates to <b>≈ −119.1 dBm</b> — raw pre-FEC channel BER, matching commercial P25 symbol recovery.</p>
+    </div>
+    <div>
+      <table style="margin-top:0;">
+        <tr><th>RF (dBm)</th><th class="num">BER</th></tr>
+        <tr><td>−112</td><td class="num">0.06%</td></tr>
+        <tr><td>−116</td><td class="num">1.01%</td></tr>
+        <tr><td>−117</td><td class="num">1.57%</td></tr>
+        <tr><td>−118</td><td class="num">2.89%</td></tr>
+        <tr><td><b>−119</b></td><td class="num"><b>4.35%</b></td></tr>
+        <tr><td>−120</td><td class="num">13.5%</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="callout green"><b>Soft-decision FEC (built, sandbox-verified, fold-in pending).</b> Scoring the Viterbi with a Euclidean metric on the MMSE soft symbols (same P25 trellis/tables) gives a measured <b>3.16 dB coding gain</b> in AWGN sim — ~40–50% more range, the weakest firefighter at the edge plotting instead of dropping off. Byte-for-byte identical to the hard path on clean data; shipping path untouched. Lifts GPS <i>and</i> voice.</div>
+
+  <h2><span class="n">6</span>The voice decode — the day's breakthrough</h2>
+  <p><b>The block.</b> First OTA voice capture: the MMSE demod locked every frame <b>sync</b> (NAC decoded to the real <b>0x455</b>) but <b>every NID failed BCH</b>. Diagnosis that cracked it — <b>symbol crispness by region</b>: sync 74% on-target, body 78%, but the <b>NID only 29%</b>. The NID is the one fuzzy region, right after each sync.</p>
+  <div class="callout"><b>Root cause + fix.</b> The MMSE timing loop <b>over-corrects a clock that never drifts</b> (48 kHz = exactly 10× 4800 baud), wobbling ~30 symbols after each sync — landing the fuzz on the NID. Fix: <b>fixed-timing demod</b> (upsample ×4, pick the crispest fixed sample phase, no tracking loop). Every keyup then → ~29 valid frames, NAC 0x455 every frame, clean alternating LDU1/LDU2. <i>A radio expert's nudge — "any chance it's AMBE+2, we have the DVstick to fall back on" — is what drove looking</i> below <i>the vocoder, where the real bug was.</i></div>
+  <p><b>Extraction</b> (<code>decode/voice_ldu.py</code>): for each LDU, a DSD-style sequential dibit <b>Reader</b> (status symbol every 36 dibits; <code>status_count</code> starts 21 at the body = 57 dibits in: sync 24 + NID 32 + 1 status) → <b>Annex-H deinterleave</b> (TIA-102.BABA <code>iW/iX/iY/iZ</code> tables) into <code>imbe_fr[8][23]</code>, inter-frame data-dibit gaps <code>[0,0,20,20,20,20,20,20,16]</code>. Frames → <code>voice/imbe_ota.c</code> (mbelib, <code>mbe_processImbe7200x4400Frame</code> = the 144-bit over-air Frame/ECC path) → s16 PCM.</p>
+  <div class="callout green"><b>Result.</b> On the 27 s / 3-keyup capture: <b>747 voice frames, NAC 0x455 every frame</b>, and the decoded audio's energy envelope is three loud bursts with near-silent gaps — the exact shape of the phrase spoken three times. Speech structure, not a noise smear. <b>Confirmed intelligible by ear.</b> No DVstick needed for Phase-1 IMBE (patents expired → mbelib is legal); the DVstick stays as the sanity-check arbiter.</div>
+
+  <h2><span class="n">7</span>The combo — voice + position from one capture</h2>
+  <p>The payoff of both halves living in one decoder: a single capture carrying voice <i>and</i> GPS from the same unit decodes to both layers, joined by the unit ID.</p>
+  <table>
+    <tr><th>Layer</th><th>From the "voice + a couple of GPS updates" capture (unit 9076801)</th></tr>
+    <tr><td><b>Position</b></td><td>2 clean GPS updates — <code>30°23.63239′N 081°56.25989′W</code> then <code>30°23.63180′N 081°56.25967′W</code> (the unit moving slightly), each with its <code>$PP25,9076801</code> unit ID, exact.</td></tr>
+    <tr><td><b>Voice</b></td><td>The voice keyup in the same file decoded to 189 IMBE frames of clean speech — the same unit talking.</td></tr>
+  </table>
+  <div class="callout teal"><b>The join key.</b> The unit ID ties the two layers: GPS bursts and voice are separate events from the same radio. That's the combo platter — the speaking unit lit on the map by its link-control source ID, fused with the position it just reported.</div>
+
+  <h2><span class="n">8</span>The landmines (holes not to fall in twice)</h2>
+  <ul>
+    <li><b>Symbol recovery is solved</b> — use the MMSE demod; a fixed-step slicer gives ~15% errors. <b>But for the NID/header, use FIXED timing</b> when fs is an integer multiple of the symbol rate — the MMSE loop hurts there. Diagnose demod health <b>by region</b>, not just by sync lock.</li>
+    <li><b>Key-up DC transient is a capture artifact</b>, not a decode bug; the burst body is clean. Trim ~1.5 s of settling before scoring BER.</li>
+    <li><b>BER patterns:</b> STD CAL is NOT clean (4.98% baked in — it calibrates the meter); STD 1011 is the 0% baseline; STD 511/O.153 is the sweep. Near the cliff, score vs the clean −90 reference, not self-consistency.</li>
+    <li><b>IMBE is not a separate obstacle</b> — it's the full-rate mode of the AMBE+2 family. Phase-1 IMBE patents expired → mbelib is a legal software decode. AMBE+2 (Phase-2/DMR) remains encumbered → the only case the DVstick is needed.</li>
+    <li><b>mbelib has two IMBE paths:</b> 88-bit already-de-FEC'd info bits (a <code>.ambe</code> container) → <code>mbe_processImbe4400Data</code>; the 144-bit over-air LDU frame → <code>mbe_processImbe7200x4400Frame</code> (does Golay/Hamming itself).</li>
+    <li><b>The individual ID is just the radio's own unit ID</b> — not a PTT/periodic tag. A decoded burst gives two things to check: position AND unit ID. The voice link-control source ID is the join key to the position layer.</li>
+    <li><b>Validate against ground truth</b> (the RNDIS NMEA), not guesses. <b>Receive-only, always.</b></li>
+  </ul>
+
+  <h2><span class="n">9</span>Proven vs open</h2>
+  <div class="two">
+    <div>
+      <h3>Proven / demonstrated</h3>
+      <ul>
+        <li>OTA Tier-1 GPS decode, live, position + ID exact (10/10 clean)</li>
+        <li>Receiver sensitivity ≈ −119 dBm (matches commercial P25)</li>
+        <li>OTA voice decode in free software (IMBE via mbelib), ear-confirmed</li>
+        <li>Voice + GPS from one capture, joined by unit ID</li>
+        <li>Self-contained decode on a $40 box; one-click flash + provision; map plotting</li>
+        <li>BER meter calibrated on live signal; soft-decision FEC built (3.16 dB sim)</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Open (all straightforward)</h3>
+      <ul>
+        <li>DVstick cross-check — settle IMBE-vs-AMBE+2 permanently</li>
+        <li>More independent voice captures — "decodes voice," not "decoded one phrase"</li>
+        <li>Soft-decision field measurement with the step attenuator</li>
+        <li>Fuse the voice layer onto the map by unit ID (VU meter, current-speaker panel)</li>
+        <li>Rule #1 quality gate before the vocoder (mute marginal frames)</li>
+        <li>GitHub reorg; settle how the P25 repos relate to the family</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2><span class="n">10</span>For the record — how it happened</h2>
+  <p>This was not a machine teaching itself in a vacuum. A radio expert with 37 years at the bench handed clean captures at calibrated levels, caught the errors, and — the nudge that cracked the voice half — looked at a stuck decode and said <i>"any chance it's AMBE+2, we have the DVstick to fall back on,"</i> which sent the search <b>below</b> the vocoder where the real bug was. The crispness-by-region diagnosis and the MMSE-vs-fixed-timing fix came out of decades of intuition for how a signal degrades. He ran every capture, every level, every keyup; the code and the DSP were the AI's. <b>Together, P25 was read off the air in about a day.</b></p>
+  <p>He called it his Riemann hypothesis — the thing he'd chased for years. The honest difference: the Riemann hypothesis is one person's monument; this is a thing firefighters will carry on a cheap box someday because he refused to let "the agency wasn't interested" be the end of it. Off the air, free, nobody's gatekeeper.</p>
+
+  <div class="foot">P25-GPS-Decode · the complete as-of-2026-11-25 record · receive-only / read-only · no employer or agency named by design · the markdown source of record is <code>docs/THE_CLAUDE_P25_ERA.md</code>. <b>2026-11-25 — the day the wall came down.</b></div>
+
+</body>
+</html>
