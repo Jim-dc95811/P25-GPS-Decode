@@ -63,22 +63,33 @@ def self_ber(sym):
     berr = float(np.mean(np.array([to_bits(M[k]) for k in range(K)]) != refbits[None, :]))
     return dict(period=P, repeats=K, polarity=sgn, symbol_err=serr, ber=berr, nbits=K * P * 2)
 
+def _fold_clean(sym, sgn, P):
+    """Majority-vote a clean length-P pattern from this capture at the given polarity."""
+    dib = slice_dibits(sym, sgn)
+    K = len(dib) // P
+    M = dib[:K * P].reshape(K, P)
+    return np.array([np.bincount(M[:, c], minlength=4).argmax() for c in range(P)], dtype=np.uint8)
+
 def ber_vs_ref(cap_sym, ref_sym):
-    _, P, ref, _, _ = clean_pattern(ref_sym)         # clean reference pattern
-    reftile = np.tile(ref, 4)
+    """Measure the capture's baked-in error rate against a clean reference pattern
+    (STD CAL vs clean STD 1011). Both are period-folded to a clean pattern so the
+    demod's own stray slips don't count - only the deliberate injected errors remain -
+    then circularly aligned. CAL should read ~4.98% (its 172/3456 injected bit errors)."""
+    sgn_r, P, ref, _, _ = clean_pattern(ref_sym)       # clean 1011 reference, period P
     best = None
     for sgn in (1, -1):
-        dec = slice_dibits(cap_sym, sgn)
-        N = min(len(dec), 20000); dec = dec[:N]
-        rt = np.tile(ref, N // P + 2)
+        cap = _fold_clean(cap_sym, sgn, P)             # clean CAL pattern at the same period
         for off in range(P):
-            m = int(np.sum(rt[off:off + N] != dec))
-            if best is None or m < best[1]: best = (m, sgn, off, dec, rt[off:off + N])
-        _ = reftile
-    _, sgn, off, dec, r = best
-    serr = float(np.mean(dec != r))
-    berr = float(np.mean(to_bits(dec) != to_bits(r)))
-    return dict(period=P, polarity=sgn, offset=off, symbol_err=serr, ber=berr, nbits=len(dec) * 2)
+            r = np.roll(ref, off)
+            m = int(np.sum(cap != r))
+            if best is None or m < best[0]:
+                best = (m, sgn, off, cap, r)
+    _, sgn, off, cap, r = best
+    diff = cap != r
+    serr = float(np.mean(diff))
+    berr = float(np.mean(to_bits(cap) != to_bits(r)))
+    return dict(period=P, polarity=sgn, offset=off, symbol_err=serr, ber=berr,
+                ndiff=int(diff.sum()), nbits=P * 2)
 
 def main():
     args = sys.argv[1:]
