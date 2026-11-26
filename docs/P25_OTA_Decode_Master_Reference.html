@@ -114,7 +114,7 @@
   <div class="r"><b>Part VI — Sensitivity, BER &amp; independence</b>
     6.1 Test patterns · 6.2 The DEO advantage · 6.3 BER meter construction · 6.4 The sensitivity sweep &amp; the −119 dBm result · 6.5 SDR-IQ ingestion as an independence proof</div>
   <div class="r"><b>Part VII — Realizations</b>
-    7.1 Embedded (OpenWrt/stdlib) · 7.2 The GIL/overflow architecture · 7.3 The kernel-6.6 USB fix · 7.4 The PC product &amp; combo-platter engine · 7.5 Browser transport · 7.6 Provenance, validation, open problems</div>
+    7.1 Embedded (OpenWrt/stdlib) · 7.2 The GIL/overflow architecture · 7.3 The kernel-6.6 USB fix · 7.4 The PC product &amp; combo-platter engine · 7.5 The internal server &amp; browser rendering · 7.6 Provenance, validation, open problems</div>
   <div class="r"><b>Appendices</b>
     A Constant &amp; symbol reference · B Interleave &amp; gap tables · C Glossary · D References</div>
 </section>
@@ -463,8 +463,46 @@ The 5% point is <em>channel (pre-FEC) symbol BER</em>; we expect to match a good
 </table>
 <p><strong>Field hardening</strong> (sandbox-verified, happy-path byte-identical): per-burst/per-frame decode isolation (one malformed burst can never kill the decoder; gate returns to IDLE before <code>_process</code> runs); bounded capture queue (~60&nbsp;s, drop-oldest, counted); sound-card disconnect recovery (reopen, re-find at a new enumeration index); server path-traversal self-guard, localhost-only native file-picker, quiet browser-abort (BrokenPipe/reset) handling, bind-failure messaging, voice-port isolation (a taken :8081 disables voice without touching the map); launcher subprocess health-watch. The Garmin self-fix enters the same feed as a reserved unit so the operator's own position plots alongside the fleet.</p>
 
-<h3>Browser transport</h3>
-<p>The map reads tiles straight from Esri <strong>Compact Cache V2 (.tpkx)</strong> by direct bundle seek — no conversion, the same package ArcGIS Earth opens — or MBTiles (SQLite). The browser plays voice with the Web Audio API: Int16→Float32→<code>createBuffer(1,n,8000)</code> → gap-less <code>AudioBufferSourceNode</code> scheduling with a small jitter buffer, started inside a user-gesture click (autoplay policy), auto-reconnecting. The combo platter captures a whole key-up then streams it (record-then-replay): no echo by construction, delay invisible to a remote listener, and a clean full-key-up with no clipped first word — a free consequence of the segment architecture.</p>
+<h3>The internal server &amp; browser rendering</h3>
+<p>The display side is its own layer and the part with no prior art for this niche: a small internal HTTP/WebSocket server and a single static page the browser runs. Nothing is installed on the viewer; the server speaks only plain HTTP and a hand-rolled WebSocket — no map SDK, no tile backend, no streaming server, no GIS runtime. This is what lets an ordinary browser display a full offline map with live off-air units on it.</p>
+
+<h4>The internal HTTP server</h4>
+<p><code>units_kml.py</code> runs a <code>ThreadingHTTPServer</code> (subclassed so its worker threads are daemons and a viewer's broken-pipe disconnect is swallowed rather than logged as an error) on <strong>:8080</strong>. One <code>BaseHTTPRequestHandler</code> routes everything by path:</p>
+<table>
+  <caption>HTTP routes the browser calls.</caption>
+  <tr><th style="width:34%">Route</th><th>Returns</th></tr>
+  <tr><td class="m">GET /</td><td>the map page (<code>map.html</code>); resolves the first available map client-side</td></tr>
+  <tr><td class="m">GET /maps.json</td><td>every map found on the media: <code>[{slug, name, base:"/m/&lt;slug&gt;/", tpkx}]</code></td></tr>
+  <tr><td class="m">GET /m/&lt;slug&gt;/</td><td>the map page bound to one specific map</td></tr>
+  <tr><td class="m">GET /m/&lt;slug&gt;/tiles/{z}/{x}/{y}</td><td>one map tile, PNG or JPEG — the hot path</td></tr>
+  <tr><td class="m">GET /units.json</td><td>the live units (position, id, age) — polled every 3&nbsp;s</td></tr>
+  <tr><td class="m">GET/POST /admin/aliases</td><td>token-guarded unit renaming</td></tr>
+  <tr><td class="m">GET leaflet.js / leaflet.css</td><td>the bundled map library, served locally (never a CDN)</td></tr>
+</table>
+
+<h4>Serving a tile straight out of a .tpkx (Compact Cache V2)</h4>
+<p>The tile hot path reads the Esri <strong>Compact Cache V2</strong> package by direct byte-seek — no Esri runtime, no conversion, and, because the inner bundles are <em>stored</em> (not deflated), no decompression. A <code>.tpkx</code> is a ZIP whose <code>root.json</code> gives the LOD range and <code>iteminfo.json</code> the extent; tile data lives in <code>tile/L&lt;zz&gt;/R&lt;row&gt;C&lt;col&gt;.bundle</code> files, each a <strong>128×128 block of tiles</strong> — a 64-byte header followed by a 128×128 table of 8-byte little-endian index words. One Leaflet tile request becomes a few <code>seek</code>/<code>read</code> calls:</p>
+<div class="lst"><span class="c"># units_kml.py — read tile (z,x,y) from a Compact Cache V2 .tpkx</span>
+rb, cb = (y // 128) * 128, (x // 128) * 128            <span class="c"># which 128x128 bundle holds it</span>
+name   = "tile/L%02d/R%04xC%04x.bundle" % (z, rb, cb)
+base   = bundle_data_offset(name)                      <span class="c"># parse the ZIP local header once, then cache</span>
+f.seek(base + 64 + ((y - rb) * 128 + (x - cb)) * 8)    <span class="c"># this tile's 8-byte index word</span>
+v   = int.from_bytes(f.read(8), "little")
+off = v &amp; ((1 &lt;&lt; 40) - 1)                              <span class="c"># low 40 bits  = offset within the bundle</span>
+sz  = v &gt;&gt; 40                                           <span class="c"># high 24 bits = tile byte length (0 = absent)</span>
+f.seek(base + off); return f.read(sz)                  <span class="c"># the raw PNG/JPEG tile, sent as-is</span></div>
+<div class="lst-cap">The entire tile backend. File handles are thread-local so the threaded server reads concurrently; each bundle's data offset is parsed from its ZIP local header once and cached. Carrying none of a 3-D globe's weight, this 2-D path serves the same package faster than the GIS application does.</div>
+<p>MBTiles are served from the same route via SQLite, with the one coordinate fix: Leaflet requests <strong>XYZ</strong> (y=0 at north) while MBTiles stores <strong>TMS</strong> (row 0 at south), so <code>y</code> is flipped to <code>2<sup>z</sup> − 1 − y</code> before the query. Tiles carry their own content type — a <code>.tpkx</code> is MIXED (PNG on edge tiles for transparency, JPEG inside).</p>
+
+<h4>The slippy map</h4>
+<p><code>map.html</code> is one static page running <strong>Leaflet</strong> (bundled, not from a CDN). It creates a tile layer pointed at the server's tile route and lets Leaflet drive the <code>{z}/{x}/{y}</code> requests:</p>
+<div class="lst">L.tileLayer("/m/&lt;slug&gt;/tiles/{z}/{x}/{y}",
+  { minZoom: meta.minzoom, maxNativeZoom: meta.maxzoom, maxZoom: 22, bounds: [sw, ne] })</div>
+<p><code>maxNativeZoom</code> is the package's deepest LOD; Leaflet up-samples past it to zoom 22 so the operator can keep zooming after the imagery runs out. The live units are a second layer: the page <code>fetch</code>es <code>/units.json</code> every 3&nbsp;s and moves the markers (green live, amber stale), and re-reads <code>/maps.json</code> every 30&nbsp;s so a map added to the media appears with no reload. Units never recenter the view — operators key up from all over, so the map stays where it is put.</p>
+
+<h4>Decoded-voice transport (WebSocket → Web Audio)</h4>
+<p>Voice is a separate, isolated service — <code>voice_ws.py</code> on <strong>:8081</strong> — so audio can start, stop, or fail without touching the map or the position feed. It is a <strong>hand-rolled WebSocket</strong> in the standard library: the HTTP upgrade is completed by hashing the client key (<code>SHA-1</code> of <code>Sec-WebSocket-Key</code> + the protocol GUID, base64-encoded) into <code>Sec-WebSocket-Accept</code>; thereafter each PCM chunk is wrapped in one unmasked binary frame (first byte <code>0x82</code> = FIN + binary opcode, with 7/16/64-bit length) and fanned out to every listener, lock-free, with a short per-client send timeout so one stuck listener is dropped rather than stalling the stream. The payload is the rawest possible: <strong>16-bit little-endian PCM at 8&nbsp;kHz</strong>, straight from the IMBE decoder (§4) — no codec, because the voice was already decoded in software.</p>
+<p>The browser plays it with the <strong>Web Audio API</strong>. A tap on <em>Listen</em> — required, because the <code>AudioContext</code> must be created or resumed inside a user gesture to satisfy the autoplay policy — opens <code>ws://&lt;host&gt;:8081</code>; each binary message is read as an <code>Int16Array</code>, normalized to <code>Float32</code>, written into <code>AudioContext.createBuffer(1, n, 8000)</code>, and played through an <code>AudioBufferSourceNode</code> scheduled end-to-end against a small jitter buffer so successive chunks run seamlessly. The socket auto-reconnects on a blip, and a VU meter rides the level. Because the combo gate captures a whole key-up before decoding (§7.4), the stream is record-then-replay: no echo is possible, the first syllable is never clipped, and the brief delay is invisible to a remote listener.</p>
 
 <h3>Provenance, validation, open problems</h3>
 <h5>Open-source lineage.</h5>
